@@ -1,0 +1,488 @@
+/* Satetoad - Open Telco Eval Interface Styles
+ *
+ * Theme: Dracula (from toad repository)
+ * Background: #282A36, Foreground: #F8F8F2
+ * Primary: #BD93F9 (purple), Secondary: #6272A4 (comment blue)
+ * Accent: #50FA7B (green), Error: #FF5555, Warning: #FFB86C
+ *
+ * Key patterns demonstrated:
+ * - Nested selectors with &
+ * - State classes (-highlight, -visible, -hidden)
+ * - Layered rendering (background/content layers)
+ * - Layout properties (dock, width, height)
+ */
+
+/* ============================================
+   GLOBAL STYLES - DRACULA THEME
+   ============================================ */
+
+Screen {
+    background: #282A36;
+}
+
+/* ============================================
+   HEADER SECTION
+   ============================================ */
+
+#header {
+    align: center top;
+    dock: top;
+    height: auto;
+}
+
+#title-grid {
+    margin: 0 1;
+    border: none;
+    background: #1E1F29;
+    grid-size: 2 1;
+    height: auto;
+    grid-columns: 30 1fr;
+    grid-rows: auto;
+    grid-gutter: 1 2;
+    min-width: 60;
+    min-height: 8;
+}
+
+/* Mandelbrot fractal in header */
+Mandelbrot {
+    border: none;
+    height: 100%;
+    min-height: 8;
+    background: transparent;
+}
+
+/* ============================================
+   WELCOME BANNER - ASCII TOAD
+   ============================================ */
+
+Welcome {
+    height: auto;
+    width: 100%;
+    padding: 0;
+}
+
+#logo {
+    color: #50FA7B;
+    text-style: bold;
+}
+
+#message {
+    color: #F8F8F2;
+    background: transparent;
+    padding: 0;
+}
+
+#message Markdown {
+    background: transparent;
+}
+
+/* Tower network - expands to fill header */
+TowerNetwork {
+    border: none;
+    height: 100%;
+    background: transparent;
+}
+
+/* Satellite - expands to fill header */
+Satellite {
+    border: none;
+    height: 100%;
+    background: transparent;
+}
+
+/* ============================================
+   MAIN CONTENT AREA (legacy - kept for compatibility)
+   ============================================ */
+
+#content {
+    hatch: right #BD93F9 15%;
+    padding: 1;
+}
+
+/* ============================================
+   BOXES VIEW (2x2 Grid)
+   ============================================ */
+
+#boxes-view {
+    height: auto;
+    padding: 1;
+    margin: 0;
+    grid-gutter: 1;
+    background: #282A36 80%;
+
+    &.-hidden {
+        display: none;
+    }
+}
+
+/* ============================================
+   ACTION BOXES (Evals, Leaderboard, Submit)
+   ============================================ */
+
+#action-boxes {
+    height: auto;
+    padding: 1;
+    margin: 0;
+    grid-gutter: 1;
+    background: #282A36 80%;
+
+    &.-hidden {
+        display: none;
+    }
+}
+
+#action-boxes EvalBox {
+    border: tall #6272A4 30%;
+    background: #282A36 90%;
+
+    &.-highlight {
+        background: #44475A;
+        border: tall #BD93F9;
+    }
+}
+
+/* ============================================
+   SECTION HEADING
+   ============================================ */
+
+.heading {
+    margin: 0 0 0 0;
+    padding: 1 1 0 2;
+    text-style: underline;
+    color: #FFB86C;
+}
+
+/* ============================================
+   MODEL BOXES (Lab APIs, Cloud APIs, etc.)
+   ============================================ */
+
+#model-boxes {
+    height: auto;
+    padding: 1;
+    margin: 0;
+    grid-gutter: 1;
+    background: #282A36 80%;
+
+    &.-hidden {
+        display: none;
+    }
+}
+
+#model-boxes EvalBox {
+    border: tall #6272A4 30%;
+    background: #282A36;
+
+    &.-highlight {
+        background: #44475A;
+        border: tall #BD93F9;
+    }
+}
+
+/* ============================================
+   GRID SELECT
+   ============================================ */
+
+GridSelect {
+    height: auto;
+    padding: 0;
+    margin: 0;
+
+    &.-highlight {
+        background: #44475A;
+        border: tall #BD93F9 30%;
+    }
+
+    &:focus * {
+        &.-highlight {
+            background: #44475A;
+            border: tall #BD93F9;
+        }
+    }
+}
+
+/* ============================================
+   EVAL BOX (Main action cards)
+   ============================================ */
+
+EvalBox {
+    height: auto;
+    min-height: 3;
+    border: tall #6272A4 30%;
+    padding: 0 1;
+    background: #282A36 90%;
+
+    &:hover {
+        background: #44475A;
+    }
+
+    &.-highlight {
+        background: #44475A;
+        border: tall #BD93F9;
+    }
+
+    Digits {
+        width: 4;
+        padding: 0 1 0 0;
+        color: #50FA7B;
+    }
+
+    #name {
+        text-style: bold;
+        color: #F8F8F2;
+    }
+
+    #description {
+        color: #faf9f5 60%;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
+}
+
+/* ============================================
+   PANEL STYLES (Shared)
+   ============================================ */
+
+SetModelPanel,
+RunEvalsPanel,
+LeaderboardPanel,
+SubmitPanel {
+    &.-hidden {
+        display: none;
+    }
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+
+Footer {
+    dock: bottom;
+    background: #282A36;
+
+    .footer-key--key {
+        background: #44475A;
+        color: #F8F8F2;
+        padding: 0 1;
+    }
+
+    .footer-key--description {
+        color: #faf9f5 60%;
+    }
+}
+
+/* ============================================
+   FLASH (NOTIFICATIONS)
+   ============================================ */
+
+Flash {
+    height: 1;
+    background: #BD93F9 10%;
+    visibility: hidden;
+    dock: bottom;
+    padding: 0 1;
+
+    &.-visible {
+        visibility: visible;
+    }
+
+    &.-success {
+        background: #50FA7B 20%;
+    }
+
+    &.-warning {
+        background: #FFB86C 20%;
+    }
+
+    &.-error {
+        background: #FF5555 20%;
+    }
+}
+
+/* ============================================
+   THROBBER (LOADING INDICATOR)
+   ============================================ */
+
+Throbber {
+    width: 100%;
+    height: 1;
+    visibility: hidden;
+
+    &.-busy {
+        visibility: visible;
+    }
+}
+
+/* ============================================
+   DATA TABLE (for leaderboard)
+   ============================================ */
+
+DataTable {
+    height: auto;
+    max-height: 15;
+    border: solid #BD93F9 30%;
+    background: #282A36;
+}
+
+/* ============================================
+   FORM ELEMENTS
+   ============================================ */
+
+Input {
+    border: solid #6272A4;
+    background: #44475A;
+    color: #F8F8F2;
+
+    &:focus {
+        border: solid #BD93F9;
+    }
+}
+
+Select {
+    border: solid #6272A4;
+    background: #44475A;
+
+    &:focus {
+        border: solid #BD93F9;
+    }
+}
+
+Checkbox {
+    padding: 0;
+    margin: 0;
+    color: #F8F8F2;
+}
+
+Button {
+    min-width: 10;
+    background: #44475A;
+    color: #F8F8F2;
+    border: tall #6272A4;
+
+    &:hover {
+        background: #6272A4;
+    }
+
+    &:focus {
+        border: tall #BD93F9;
+    }
+}
+
+/* ============================================
+   TRAJECTORIES SCREEN
+   ============================================ */
+
+TrajectoriesScreen {
+    background: #282A36;
+}
+
+#trajectory-header {
+    dock: top;
+    height: auto;
+    padding: 1;
+    background: #44475A;
+}
+
+#header-info {
+    width: 1fr;
+}
+
+#header-nav {
+    width: auto;
+    align: right middle;
+}
+
+#sample-counter {
+    width: auto;
+    padding: 0 1;
+    text-style: bold;
+}
+
+.-nav-btn {
+    min-width: 3;
+    margin: 0 0 0 1;
+}
+
+#trajectory-content {
+    height: 1fr;
+    padding: 1;
+}
+
+/* ============================================
+   TRAJECTORY SECTION WIDGETS
+   ============================================ */
+
+/* Section labels */
+.section-label {
+    color: #faf9f5 60%;
+    margin: 1 0 0 0;
+    text-style: bold;
+}
+
+/* Prompt section - truncated with expand */
+PromptSection {
+    margin: 0 1;
+    height: auto;
+
+    #prompt-content {
+        max-height: 5;
+        overflow-y: hidden;
+        background: #44475A;
+        padding: 1;
+        border: round #BD93F9 30%;
+    }
+
+    &.-expanded #prompt-content {
+        max-height: 100%;
+        overflow-y: auto;
+    }
+
+    &:focus {
+        #prompt-content {
+            border: round #BD93F9;
+        }
+    }
+}
+
+/* Reasoning section */
+ReasoningSection {
+    margin: 0 1;
+    height: auto;
+
+    #reasoning-content {
+        background: #BD93F9 10%;
+        padding: 1;
+        border: round #BD93F9 30%;
+    }
+}
+
+/* Answer section */
+AnswerSection {
+    margin: 0 1;
+    height: auto;
+
+    #answer-content {
+        background: #44475A;
+        padding: 1;
+        border: round #6272A4 30%;
+    }
+}
+
+/* Comparison - side by side */
+ComparisonSection {
+    margin: 1;
+    height: auto;
+    min-height: 3;
+
+    #target, #llm {
+        width: 1fr;
+        padding: 1;
+        content-align: center middle;
+        text-align: center;
+        border: round #BD93F9 30%;
+        margin: 0 1 0 0;
+    }
+
+    #llm {
+        margin: 0;
+    }
+}

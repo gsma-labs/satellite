@@ -1,0 +1,81 @@
+/* JobDetailModal Stylesheet */
+
+JobDetailModal {
+    align: center middle;
+    background: black 50%;
+}
+
+JobDetailModal #container {
+    width: 60;
+    max-width: 70;
+    height: 80%;
+    padding: 0 2 1 2;
+    background: #1E1F29;
+    border: thick #BD93F9 20%;
+}
+
+JobDetailModal #header {
+    width: 100%;
+    height: auto;
+    border-bottom: solid #BD93F9 30%;
+    margin-bottom: 1;
+}
+
+JobDetailModal .modal-title {
+    width: 1fr;
+    text-align: center;
+    text-style: bold;
+    padding: 0;
+    color: #F8F8F2;
+}
+
+JobDetailModal #close-x {
+    width: 3;
+    text-align: center;
+    color: #faf9f5 60%;
+}
+
+JobDetailModal #close-x:hover {
+    color: #FF5555;
+}
+
+JobDetailModal #detail-scroll {
+    height: 1fr;
+    padding: 0 1;
+}
+
+JobDetailModal .detail-label {
+    color: #faf9f5 60%;
+    margin-top: 1;
+}
+
+JobDetailModal .detail-value {
+    color: #F8F8F2;
+    margin-left: 1;
+}
+
+JobDetailModal .status-pending {
+    color: #FFB86C;
+}
+
+JobDetailModal .status-running {
+    color: #8BE9FD;
+}
+
+JobDetailModal .status-completed {
+    color: #50FA7B;
+}
+
+JobDetailModal .status-failed {
+    color: #FF5555;
+}
+
+JobDetailModal .error-text {
+    color: #FF5555;
+}
+
+JobDetailModal .benchmark-item,
+JobDetailModal .result-item {
+    color: #F8F8F2;
+    margin-left: 1;
+}

@@ -1,0 +1,163 @@
+/* SetModelModal - Clean toad-style configuration modal
+ *
+ * Design principles:
+ * - Transparent/subtle backgrounds on form elements (no clunky boxes)
+ * - Tall borders that highlight on focus
+ * - Minimal visual noise
+ * - Dracula color scheme
+ */
+
+SetModelModal {
+    align: center middle;
+    background: black 50%;  /* Semi-transparent backdrop */
+}
+
+SetModelModal #container {
+    margin: 1 2;
+    padding: 1 1;
+    max-width: 55;
+    width: auto;
+    height: auto;
+    background: #1E1F29;
+    border: thick #BD93F9 20%;
+}
+
+SetModelModal .modal-title {
+    text-align: center;
+    text-style: bold;
+    padding: 0;
+    margin-bottom: 1;
+    color: #F8F8F2;
+}
+
+/* Form field labels - subtle muted color */
+SetModelModal .form-label {
+    width: 12;
+    padding: 0 1 0 0;
+    color: #faf9f5 60%;
+}
+
+/* Form row layout */
+SetModelModal .form-row {
+    height: auto;
+    margin: 0 0 1 0;
+    align: left middle;
+}
+
+/* Hidden credential row for providers that don't need credentials */
+SetModelModal #credential-row.hidden {
+    display: none;
+}
+
+/* CRITICAL: Clean input styling - NO visible background boxes */
+SetModelModal #provider-select,
+SetModelModal #credential-input,
+SetModelModal #model-input {
+    width: 1fr;
+    background: transparent;
+    border: tall black 20%;
+}
+
+SetModelModal #provider-select:focus,
+SetModelModal #credential-input:focus,
+SetModelModal #model-input:focus {
+    border: tall #BD93F9;
+}
+
+/* Select widget internal styling - transparent background */
+SetModelModal Select > SelectCurrent {
+    background: transparent;
+}
+
+SetModelModal Select:focus > SelectCurrent {
+    background: transparent;
+}
+
+/* Model hint text */
+SetModelModal .model-hint {
+    color: #faf9f5 60%;
+    margin-left: 12;
+    text-style: italic;
+    height: 1;
+}
+
+/* Button container */
+SetModelModal #buttons {
+    margin-top: 1;
+    padding-top: 0;
+    align: right top;
+    border-top: solid #BD93F9 10%;
+}
+
+/* Clean button styling - transparent background */
+SetModelModal #buttons Button {
+    margin-left: 1;
+    min-width: 8;
+    background: transparent;
+    border: tall black 20%;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+SetModelModal #buttons Button:hover {
+    background: #BD93F9 5%;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+SetModelModal #buttons Button:focus {
+    border: tall #BD93F9;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+SetModelModal #buttons Button.-active {
+    background: #BD93F9 10%;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+/* Go button - primary action with toad-style purple/gold accent */
+SetModelModal #buttons #save-btn {
+    background: #BD93F9 30%;
+    border: tall #BD93F9 60%;
+    color: #F8F8F2;
+    min-width: 8;
+}
+
+SetModelModal #buttons #save-btn:hover {
+    background: #BD93F9 50%;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+SetModelModal #buttons #save-btn:focus {
+    background: #BD93F9 40%;
+    border: tall #BD93F9;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+/* Cancel button - subtle styling */
+SetModelModal #buttons #cancel-btn {
+    color: #faf9f5 60%;
+}
+
+SetModelModal #buttons #cancel-btn:focus {
+    color: #F8F8F2;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+SetModelModal #buttons #cancel-btn.-active {
+    background: transparent;
+    tint: transparent;
+    background-tint: transparent;
+}
+
+/* Go button active/pressed state */
+SetModelModal #buttons #save-btn.-active {
+    background: #BD93F9 50%;
+    tint: transparent;
+    background-tint: transparent;
+}

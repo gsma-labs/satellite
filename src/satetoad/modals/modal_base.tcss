@@ -1,0 +1,348 @@
+/* Modal Base Stylesheet - Shared styles for all modals
+ *
+ * Based on Toad's modal patterns (AgentModal, SessionResumeModal)
+ * Key: ModalScreen background IS the backdrop overlay
+ *
+ * Dracula Theme Colors:
+ * Background: #282A36, Surface: #44475A, Foreground: #F8F8F2
+ * Primary: #BD93F9 (purple), Secondary: #D4C5A9 (dark cream)
+ */
+
+/* ============================================================
+ * SHARED MODAL STYLES
+ * ============================================================ */
+
+/* Common modal alignment - center with semi-transparent backdrop */
+RunEvalsModal, LeaderboardModal, SubmitModal, TabbedEvalsModal {
+    align: center middle;
+    background: black 50%;
+}
+
+/* Common container styling */
+RunEvalsModal #container,
+LeaderboardModal #container,
+SubmitModal #container,
+TabbedEvalsModal #container {
+    margin: 0 4;
+    padding: 0 2 0 2;
+    height: auto;
+    background: #1E1F29;
+    border: thick #BD93F9 20%;
+}
+
+/* Auto-width containers */
+RunEvalsModal #container,
+SubmitModal #container {
+    max-width: 80;
+    width: auto;
+}
+
+/* Responsive TabbedEvalsModal container */
+TabbedEvalsModal #container {
+    width: 90%;
+    max-width: 80;
+    height: 70%;
+    max-height: 25;
+}
+
+/* Responsive leaderboard container */
+LeaderboardModal #container {
+    width: 90%;
+    max-width: 120;
+    max-height: 30;
+}
+
+/* Common title styling */
+RunEvalsModal .modal-title,
+LeaderboardModal .modal-title,
+SubmitModal .modal-title,
+TabbedEvalsModal .modal-title {
+    text-align: center;
+    text-style: bold;
+    padding: 0;
+    margin-bottom: 0;
+    color: #F8F8F2;
+    border-bottom: solid #BD93F9 30%;
+}
+
+/* Common button row styling */
+RunEvalsModal #buttons,
+LeaderboardModal #buttons,
+SubmitModal #buttons,
+TabbedEvalsModal .button-row {
+    height: auto;
+    margin-top: 1;
+    align: right top;
+}
+
+/* Base button styling - reset tint effects */
+RunEvalsModal #buttons Button,
+LeaderboardModal #buttons Button,
+SubmitModal #buttons Button,
+RunEvalsModal .action-row Button,
+TabbedEvalsModal .button-row Button {
+    margin-left: 1;
+    min-width: 12;
+    tint: transparent;
+    background-tint: transparent;
+    text-style: none;
+}
+
+/* Button state resets - prevent Textual's default hover/focus/active effects */
+RunEvalsModal #buttons Button:hover,
+RunEvalsModal #buttons Button:focus,
+RunEvalsModal #buttons Button.-active,
+LeaderboardModal #buttons Button:hover,
+LeaderboardModal #buttons Button:focus,
+LeaderboardModal #buttons Button.-active,
+SubmitModal #buttons Button:hover,
+SubmitModal #buttons Button:focus,
+SubmitModal #buttons Button.-active,
+RunEvalsModal .action-row Button:hover,
+RunEvalsModal .action-row Button:focus,
+RunEvalsModal .action-row Button.-active,
+TabbedEvalsModal .button-row Button:hover,
+TabbedEvalsModal .button-row Button:focus,
+TabbedEvalsModal .button-row Button.-active {
+    tint: transparent;
+    background-tint: transparent;
+    text-style: none;
+}
+
+/* Shared section label styling */
+RunEvalsModal .section-label,
+LeaderboardModal .section-label,
+TabbedEvalsModal .section-label {
+    color: #faf9f5 60%;
+}
+
+/* Shared placeholder text styling */
+LeaderboardModal .placeholder-text,
+SubmitModal .placeholder-text,
+TabbedEvalsModal #empty-message {
+    color: #faf9f5 60%;
+    text-style: italic;
+    padding: 1;
+    text-align: center;
+}
+
+/* ============================================================
+ * PRIMARY BUTTON STYLING - Dracula purple accent
+ * ============================================================ */
+
+RunEvalsModal #buttons #run-btn,
+LeaderboardModal #buttons #close-btn,
+SubmitModal #buttons #submit-btn,
+TabbedEvalsModal #run-btn,
+TabbedEvalsModal #close-btn {
+    background: #BD93F9 30%;
+    border: tall #BD93F9 60%;
+    color: #F8F8F2;
+}
+
+RunEvalsModal #buttons #run-btn:hover,
+LeaderboardModal #buttons #close-btn:hover,
+SubmitModal #buttons #submit-btn:hover,
+TabbedEvalsModal #run-btn:hover,
+TabbedEvalsModal #close-btn:hover {
+    background: #BD93F9 50%;
+}
+
+RunEvalsModal #buttons #run-btn:focus,
+LeaderboardModal #buttons #close-btn:focus,
+SubmitModal #buttons #submit-btn:focus,
+TabbedEvalsModal #run-btn:focus,
+TabbedEvalsModal #close-btn:focus {
+    background: #BD93F9 40%;
+    border: tall #BD93F9;
+}
+
+RunEvalsModal #buttons #run-btn.-active,
+LeaderboardModal #buttons #close-btn.-active,
+SubmitModal #buttons #submit-btn.-active,
+TabbedEvalsModal #run-btn.-active,
+TabbedEvalsModal #close-btn.-active {
+    background: #BD93F9 50%;
+}
+
+/* ============================================================
+ * CANCEL BUTTON STYLING
+ * ============================================================ */
+
+RunEvalsModal #buttons #cancel-btn,
+SubmitModal #buttons #cancel-btn,
+TabbedEvalsModal #cancel-btn {
+    color: #faf9f5 60%;
+    background: transparent;
+    border: tall #282A36 20%;
+}
+
+RunEvalsModal #buttons #cancel-btn:focus,
+SubmitModal #buttons #cancel-btn:focus,
+TabbedEvalsModal #cancel-btn:focus {
+    color: #F8F8F2;
+    border: tall #BD93F9;
+}
+
+RunEvalsModal #buttons #cancel-btn.-active,
+SubmitModal #buttons #cancel-btn.-active,
+TabbedEvalsModal #cancel-btn.-active {
+    background: transparent;
+}
+
+/* ============================================================
+ * RunEvalsModal SPECIFIC STYLES
+ * ============================================================ */
+
+RunEvalsModal .model-info,
+TabbedEvalsModal .model-info {
+    width: 1fr;
+    color: #faf9f5 60%;
+    margin-bottom: 0;
+    text-align: center;
+}
+
+RunEvalsModal .section-label,
+TabbedEvalsModal .section-label {
+    width: 1fr;
+    margin: 0;
+}
+
+RunEvalsModal #eval-list {
+    width: 1fr;
+    height: auto;
+    max-height: 12;
+    padding: 0 1;
+    border: solid #BD93F9 30%;
+    margin: 0;
+}
+
+/* TabbedEvalsModal list containers - fill available space, VerticalScroll handles scrolling */
+TabbedEvalsModal #eval-list-container,
+TabbedEvalsModal #job-list {
+    width: 1fr;
+    height: 1fr;
+    padding: 0 1;
+    border: solid #BD93F9 30%;
+    margin: 0;
+}
+
+TabbedEvalsModal #eval-list {
+    width: 1fr;
+    height: auto;
+    border: none;
+    padding: 0;
+}
+
+RunEvalsModal .action-row {
+    height: auto;
+    margin: 0;
+    align: left middle;
+}
+
+RunEvalsModal .action-row Button {
+    margin-right: 1;
+    margin-left: 0;
+    min-width: 0;
+}
+
+/* ============================================================
+ * LeaderboardModal SPECIFIC STYLES
+ * ============================================================ */
+
+LeaderboardModal .section-label {
+    margin: 1 0;
+}
+
+LeaderboardModal .results-table {
+    height: auto;
+    max-height: 20;
+    margin: 1 0;
+}
+
+LeaderboardModal #loading-container {
+    height: auto;
+    padding: 2;
+}
+
+LeaderboardModal #loading-text {
+    color: #faf9f5 60%;
+    text-align: center;
+    margin-top: 1;
+}
+
+LeaderboardModal .error-text {
+    color: #FF5555;
+    text-align: center;
+    padding: 2;
+}
+
+/* ============================================================
+ * SubmitModal SPECIFIC STYLES
+ * ============================================================ */
+
+SubmitModal .form-row {
+    height: auto;
+    margin: 1 0;
+    align: left middle;
+}
+
+SubmitModal .form-label {
+    width: 18;
+    padding-right: 1;
+}
+
+SubmitModal .form-input {
+    width: 40;
+    background: transparent;
+    border: tall black 20%;
+}
+
+SubmitModal .form-input:focus {
+    border: tall #BD93F9;
+}
+
+/* ============================================================
+ * TabbedEvalsModal SPECIFIC STYLES
+ * Tab visibility controls to prevent overlapping/merging tabs
+ * ============================================================ */
+
+/* Tab header - fixed height */
+TabbedEvalsModal #tab-header {
+    width: 1fr;
+    height: auto;
+}
+
+/* Tab content - fills remaining vertical space */
+TabbedEvalsModal #tab-content {
+    width: 1fr;
+    height: 1fr;
+    overflow: hidden;
+}
+
+/* CRITICAL: Hide inactive tab panes to prevent overlap */
+TabbedEvalsModal .tab-pane {
+    display: none;
+    width: 1fr;
+    height: 1fr;
+}
+
+TabbedEvalsModal .tab-pane.-active {
+    display: block;
+    height: 1fr;
+}
+
+/* Hide button rows by default */
+TabbedEvalsModal #run-evals-buttons,
+TabbedEvalsModal #view-progress-buttons {
+    display: none;
+}
+
+/* Show buttons based on active tab class */
+TabbedEvalsModal.-tab-run-evals #run-evals-buttons {
+    display: block;
+}
+
+TabbedEvalsModal.-tab-view-progress #view-progress-buttons {
+    display: block;
+}

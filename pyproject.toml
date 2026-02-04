@@ -1,0 +1,32 @@
+[project]
+name = "satetoad"
+version = "0.1.0"
+description = "Minimal TUI Widget Learning Framework - A simplified Toad interface for learning Textual patterns"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "textual>=7.5.0",
+    "huggingface-hub>=0.20.0",
+    "pyarrow>=14.0.0",
+    "evals @ git+https://github.com/otelcos/evals.git",
+]
+
+[project.scripts]
+satetoad = "satetoad.app:main"
+
+[project.optional-dependencies]
+dev = [
+    "cairosvg>=2.8.2",
+    "reportlab>=4.4.9",
+    "svglib>=1.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/satetoad"]
