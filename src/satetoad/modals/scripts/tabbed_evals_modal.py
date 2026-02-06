@@ -2,6 +2,10 @@
 
 Combines Run Evals and View Progress into a single tabbed interface.
 Selecting a job from View Progress opens a JobDetailModal overlay.
+
+Supports multi-model evaluation:
+- Displays all configured models in the Run Evals tab
+- Creates one Job per model when running
 """
 
 from typing import ClassVar
@@ -13,14 +17,14 @@ from textual.containers import HorizontalGroup, Vertical, VerticalScroll
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
-from textual.widgets import Button, Label, Static
+from textual.timer import Timer
+from textual.widgets import Button, Input, Label, Static
 
-from satetoad.examples.eval_data import get_benchmarks
-from satetoad.models.job import Job
-from satetoad.modals.job_detail_modal import JobDetailModal
-from satetoad.modals.job_list_modal import JobListItem
-from satetoad.modals.set_model_modal import ModelConfig
-from satetoad.services.job_manager import JobManager
+from satetoad.modals.scripts.job_detail_modal import JobDetailModal
+from satetoad.modals.scripts.job_list_modal import JobListItem
+from satetoad.services.config import EvalSettings, EvalSettingsManager, ModelConfig
+from satetoad.services.evals import BENCHMARKS_BY_ID, Job, JobManager
+from satetoad.widgets.dropdown_button import DropdownButton
 from satetoad.widgets.eval_list import EvalList, EvalListItem
 from satetoad.widgets.tab_header import TabHeader
 
@@ -35,35 +39,30 @@ class RunEvalsContent(Vertical):
             super().__init__()
             self.selected_benchmarks = selected_benchmarks
 
-    def __init__(self, model_config: ModelConfig | None = None, **kwargs) -> None:
+    def __init__(
+        self, model_configs: list[ModelConfig] | None = None, **kwargs
+    ) -> None:
         """Initialize the content.
 
         Args:
-            model_config: Current model configuration
+            model_configs: List of configured models
         """
         super().__init__(**kwargs)
-        self._model_config = model_config
+        self._model_configs = model_configs or []
 
     def compose(self) -> ComposeResult:
         """Compose the run evals content."""
-        if self._model_config:
-            yield Static(
-                f"Model: [bold]{self._model_config.model}[/]",
-                classes="model-info",
-            )
-        if not self._model_config:
-            yield Static(
-                "[warning]No model configured - set model first[/]",
-                classes="model-info",
-            )
-
+        # Model info moved to footer - just show the benchmarks
         yield Label("Select benchmarks to run:", classes="section-label")
 
         with VerticalScroll(id="eval-list-container"):
-            benchmarks = get_benchmarks()
+            benchmark_list = [
+                {"id": b.id, "name": b.name, "description": b.description}
+                for b in BENCHMARKS_BY_ID.values()
+            ]
             yield EvalList(
-                benchmarks,
-                selected={b["id"] for b in benchmarks},
+                benchmark_list,
+                selected=set(BENCHMARKS_BY_ID.keys()),
                 id="eval-list",
             )
 
@@ -112,13 +111,12 @@ class JobListContent(Vertical):
         super().__init__(**kwargs)
         self._job_manager = job_manager
         self._jobs: list[Job] = []
+        self._refresh_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the job list content."""
         self._jobs = self._job_manager.list_jobs(limit=20)
 
-        # Header to match Evals tab structure
-        yield Static("", classes="model-info")  # Spacer to align with Evals tab
         yield Label("Recent jobs:", classes="section-label")
 
         if not self._jobs:
@@ -133,9 +131,21 @@ class JobListContent(Vertical):
                 yield JobListItem(job)
 
     def on_mount(self) -> None:
-        """Update highlight on mount."""
+        """Start polling and update highlight on mount."""
+        self._refresh_timer = self.set_interval(2.0, self._poll_refresh)
         if self._jobs:
             self._update_highlight()
+
+    def on_unmount(self) -> None:
+        """Stop polling when unmounted."""
+        if self._refresh_timer is not None:
+            self._refresh_timer.stop()
+
+    def _poll_refresh(self) -> None:
+        """Called by timer - refresh only if this tab is visible."""
+        if not self.has_class("-active"):
+            return
+        self.refresh_jobs()
 
     def refresh_jobs(self) -> None:
         """Refresh the job list from storage."""
@@ -150,10 +160,12 @@ class JobListContent(Vertical):
             if job_list:
                 job_list.first().remove()
             if not empty_msg:
-                self.mount(Static(
-                    "No jobs yet. Run evaluations to create jobs.",
-                    id="empty-message",
-                ))
+                self.mount(
+                    Static(
+                        "No jobs yet. Run evaluations to create jobs.",
+                        id="empty-message",
+                    )
+                )
             return
 
         # Has jobs - show job list, hide empty message
@@ -214,14 +226,125 @@ class JobListContent(Vertical):
                 event.stop()
 
 
+class SettingsContent(Vertical):
+    """Content widget for the Settings tab."""
+
+    class SettingsChanged(Message):
+        """Posted when settings are modified."""
+
+        def __init__(self, settings: EvalSettings) -> None:
+            super().__init__()
+            self.settings = settings
+
+    def __init__(self, settings: EvalSettings, **kwargs) -> None:
+        """Initialize with current settings."""
+        super().__init__(**kwargs)
+        self._settings = settings
+
+    def compose(self) -> ComposeResult:
+        """Compose the settings form."""
+        yield Label("Evaluation Settings:", classes="section-label")
+
+        with VerticalScroll(id="settings-scroll"):
+            with HorizontalGroup(classes="settings-row"):
+                yield Label("Limit:", classes="settings-label")
+                yield Input(
+                    "",
+                    id="limit-input",
+                    classes="settings-input",
+                    type="integer",
+                    placeholder=str(EvalSettings.DEFAULT_LIMIT),
+                )
+                yield Label("Samples per task", classes="settings-hint")
+
+            with HorizontalGroup(classes="settings-row"):
+                yield Label("Epochs:", classes="settings-label")
+                yield Input(
+                    "",
+                    id="epochs-input",
+                    classes="settings-input",
+                    type="integer",
+                    placeholder=str(EvalSettings.DEFAULT_EPOCHS),
+                )
+                yield Label("Repeat each sample", classes="settings-hint")
+
+            with HorizontalGroup(classes="settings-row"):
+                yield Label("Max Connections:", classes="settings-label")
+                yield Input(
+                    "",
+                    id="max-connections-input",
+                    classes="settings-input",
+                    type="integer",
+                    placeholder=str(EvalSettings.DEFAULT_MAX_CONNECTIONS),
+                )
+                yield Label("Concurrent API calls", classes="settings-hint")
+
+            with HorizontalGroup(classes="settings-row"):
+                yield Label("Token Limit:", classes="settings-label")
+                yield Input(
+                    "",
+                    id="token-limit-input",
+                    classes="settings-input",
+                    placeholder="None",
+                )
+                yield Label("Per sample (optional)", classes="settings-hint")
+
+            with HorizontalGroup(classes="settings-row"):
+                yield Label("Message Limit:", classes="settings-label")
+                yield Input(
+                    "",
+                    id="message-limit-input",
+                    classes="settings-input",
+                    placeholder="None",
+                )
+                yield Label("Per sample (optional)", classes="settings-hint")
+
+    def get_settings(self) -> EvalSettings:
+        """Get current settings from form inputs."""
+
+        def parse_int(input_id: str, default: int) -> int:
+            value = self.query_one(f"#{input_id}", Input).value.strip()
+            if not value:
+                return default
+            try:
+                return int(value)
+            except ValueError:
+                return default
+
+        def parse_optional_int(input_id: str) -> int | None:
+            value = self.query_one(f"#{input_id}", Input).value.strip()
+            if not value:
+                return None
+            try:
+                return int(value)
+            except ValueError:
+                return None
+
+        return EvalSettings(
+            limit=parse_int("limit-input", EvalSettings.DEFAULT_LIMIT),
+            epochs=parse_int("epochs-input", EvalSettings.DEFAULT_EPOCHS),
+            max_connections=parse_int("max-connections-input", EvalSettings.DEFAULT_MAX_CONNECTIONS),
+            token_limit=parse_optional_int("token-limit-input"),
+            message_limit=parse_optional_int("message-limit-input"),
+        )
+
+    @on(Input.Changed)
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle input changes - post settings changed message."""
+        event.stop()
+        self.post_message(self.SettingsChanged(self.get_settings()))
+
+
 class TabbedEvalsModal(ModalScreen[Job | None]):
     """Unified tabbed modal for evaluation workflows.
 
     Combines Run Evals and View Progress tabs. Selecting a job from
     View Progress opens a JobDetailModal overlay.
+
+    Supports multi-model evaluation: creates one Job tracking all models.
     """
 
-    CSS_PATH = "modal_base.tcss"
+    CSS_PATH = "../styles/modal_base.tcss"
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "close_or_cancel", "Close", show=False),
@@ -237,19 +360,23 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
 
     def __init__(
         self,
-        model_config: ModelConfig | None = None,
-        job_manager: JobManager | None = None,
+        job_manager: JobManager,
+        settings_manager: EvalSettingsManager,
+        model_configs: list[ModelConfig] | None = None,
     ) -> None:
         """Initialize the modal.
 
         Args:
-            model_config: Current model configuration
-            job_manager: JobManager instance
+            job_manager: JobManager instance (required)
+            settings_manager: EvalSettingsManager for persisting settings
+            model_configs: List of configured models
         """
         super().__init__()
-        self._model_config = model_config
-        self._job_manager = job_manager or JobManager()
+        self._job_manager = job_manager
+        self._settings_manager = settings_manager
+        self._model_configs = model_configs or []
         self._run_evals_selected: set[str] | None = None
+        self._settings = settings_manager.load()
 
     def compose(self) -> ComposeResult:
         """Compose the modal layout."""
@@ -258,7 +385,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
 
             with Vertical(id="tab-content"):
                 yield RunEvalsContent(
-                    model_config=self._model_config,
+                    model_configs=self._model_configs,
                     id="run-evals-pane",
                     classes="tab-pane -active",
                 )
@@ -267,19 +394,50 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
                     id="view-progress-pane",
                     classes="tab-pane",
                 )
+                yield SettingsContent(
+                    settings=self._settings,
+                    id="settings-pane",
+                    classes="tab-pane",
+                )
 
-            with HorizontalGroup(id="run-evals-buttons", classes="button-row"):
-                yield Button("Cancel", id="cancel-btn", variant="default")
-                yield Button("Run", id="run-btn", variant="primary")
+            # Run Evals footer: models dropdown (left) + buttons (right)
+            with HorizontalGroup(id="run-evals-footer"):
+                yield DropdownButton(
+                    label=self._get_models_label(),
+                    items=self._get_model_items(),
+                    id="models-dropdown",
+                )
+                with HorizontalGroup(id="run-evals-buttons", classes="button-row"):
+                    yield Button("Cancel", id="cancel-btn", variant="default")
+                    yield Button("Run", id="run-btn", variant="primary")
 
+            # View Progress footer: just buttons
             with HorizontalGroup(id="view-progress-buttons", classes="button-row"):
                 yield Button("Close", id="close-btn", variant="default")
+
+            # Settings footer: just close button
+            with HorizontalGroup(id="settings-buttons", classes="button-row"):
+                yield Button("Close", id="settings-close-btn", variant="default")
+
+    def _get_models_label(self) -> str:
+        """Get the label for the models dropdown button."""
+        count = len(self._model_configs)
+        if count == 0:
+            return "Models"
+        return f"Models ({count})"
+
+    def _get_model_items(self) -> list[str]:
+        """Get the list of model items for the dropdown."""
+        if not self._model_configs:
+            return ["No models configured"]
+        return [f"[{c.provider}] {c.model}" for c in self._model_configs]
 
     def on_mount(self) -> None:
         """Set up the tabs on mount."""
         header = self.query_one("#tab-header", TabHeader)
         header.add_tab("run-evals", "Evals", closable=False, activate=True)
         header.add_tab("view-progress", "Progress", closable=False, activate=False)
+        header.add_tab("settings", "Settings", closable=False, activate=False)
         self.add_class("-tab-run-evals")
         self.query_one("#eval-list", EvalList).focus()
 
@@ -321,6 +479,10 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
 
         if tab_id == "view-progress":
             self._restore_view_progress_state()
+            return
+
+        if tab_id == "settings":
+            self._restore_settings_state()
 
     def _restore_run_evals_state(self) -> None:
         """Restore run evals tab state."""
@@ -335,6 +497,19 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         content.refresh_jobs()
         content.focus()
 
+    def _restore_settings_state(self) -> None:
+        """Restore settings tab state."""
+        content = self.query_one("#settings-pane", SettingsContent)
+        content.focus()
+
+    def on_settings_content_settings_changed(
+        self, event: SettingsContent.SettingsChanged
+    ) -> None:
+        """Handle settings changes - save to disk."""
+        event.stop()
+        self._settings = event.settings
+        self._settings_manager.save(self._settings)
+
     def on_job_list_content_job_selected(
         self, event: JobListContent.JobSelected
     ) -> None:
@@ -344,7 +519,8 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         if job is None:
             self.notify(f"Job {event.job_id} not found", severity="error")
             return
-        self.app.push_screen(JobDetailModal(job=job))
+        results = self._job_manager.get_job_results(event.job_id)
+        self.app.push_screen(JobDetailModal(job=job, results=results))
 
     def on_run_evals_content_run_requested(
         self, event: RunEvalsContent.RunRequested
@@ -357,7 +533,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         """Handle button presses."""
         button_id = event.button.id
 
-        if button_id in ("cancel-btn", "close-btn"):
+        if button_id in ("cancel-btn", "close-btn", "settings-close-btn"):
             self.dismiss(None)
             return
 
@@ -370,20 +546,21 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
             self._run_selected(selected)
 
     def _run_selected(self, selected_benchmarks: list[str]) -> None:
-        """Validate and create a job."""
+        """Validate and create a job for all configured models."""
         if not selected_benchmarks:
             self.notify("Please select at least one benchmark", severity="warning")
             return
 
-        if not self._model_config:
+        if not self._model_configs:
             self.notify("Please configure a model first", severity="error")
             return
 
         job = self._job_manager.create_job(
             benchmarks=selected_benchmarks,
-            model_provider=self._model_config.provider,
-            model_name=self._model_config.model,
+            models=self._model_configs,
+            settings=self._settings,
         )
+
         self.dismiss(job)
 
     def action_close_or_cancel(self) -> None:

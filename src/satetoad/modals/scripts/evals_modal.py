@@ -150,7 +150,7 @@ class EvalsModal(ModalScreen[str | None]):
     ╰─────────────────────────────────────╯
     """
 
-    CSS_PATH = "modal_base.tcss"
+    CSS_PATH = "../styles/modal_base.tcss"
 
     DEFAULT_CSS = """
     EvalsModal {

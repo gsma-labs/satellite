@@ -1,7 +1,6 @@
 """JobListModal - Modal for viewing evaluation jobs.
 
-Lists all jobs with their status and allows navigation
-to individual job details.
+Lists all jobs and allows navigation to individual job details.
 """
 
 from typing import ClassVar
@@ -9,14 +8,20 @@ from typing import ClassVar
 from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Vertical, VerticalScroll, HorizontalGroup
+from textual.containers import HorizontalGroup, Vertical, VerticalScroll
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button, Static
 
-from satetoad.models.job import Job, STATUS_ICONS
-from satetoad.services.job_manager import JobManager
+from satetoad.services.evals import Job, JobManager, JobStatus
+
+STATUS_SYMBOLS: dict[JobStatus, str] = {
+    "running": "●",
+    "success": "◉",
+    "cancelled": "●",
+    "error": "✕",
+}
 
 
 class JobListItem(HorizontalGroup):
@@ -24,7 +29,7 @@ class JobListItem(HorizontalGroup):
 
     Layout:
     +----------------------------------------+
-    | ● job_1     TeleQnA, TeleLogs  Running |
+    | jobs_1     openai/gpt-4o  TeleQnA, ... |
     +----------------------------------------+
     """
 
@@ -43,44 +48,10 @@ class JobListItem(HorizontalGroup):
             background: #44475A;
         }
 
-        #status-icon {
-            width: 2;
-            color: #faf9f5 60%;
-        }
-
-        &.-pending #status-icon {
-            color: #FFB86C;
-        }
-
-        &.-running #status-icon {
-            color: #8BE9FD;
-        }
-
-        &.-completed #status-icon {
-            color: #50FA7B;
-        }
-
-        &.-failed #status-icon {
-            color: #FF5555;
-        }
-
-        #job-name {
-            width: 10;
-            text-style: bold;
-            color: #F8F8F2;
-        }
-
-        #benchmarks {
+        #job-info {
             width: 1fr;
-            color: #faf9f5 60%;
             text-wrap: nowrap;
             text-overflow: ellipsis;
-        }
-
-        #status-text {
-            width: auto;
-            padding: 0 0 0 1;
-            color: #faf9f5 60%;
         }
     }
     """
@@ -101,8 +72,7 @@ class JobListItem(HorizontalGroup):
         super().__init__()
         self._job = job
         self.can_focus = True
-        # Add status class for styling
-        self.add_class(f"-{job.status.value}")
+        self.add_class(f"-{job.status}")
 
     @property
     def job_id(self) -> str:
@@ -111,15 +81,19 @@ class JobListItem(HorizontalGroup):
 
     def compose(self) -> ComposeResult:
         """Compose the job item layout."""
-        icon = STATUS_ICONS.get(self._job.status, "○")
-        yield Static(icon, id="status-icon")
-        yield Label(self._job.display_name, id="job-name")
+        models = list(self._job.evals.keys())
+        model_text = models[0] if len(models) == 1 else f"{len(models)} models"
 
-        benchmarks = ", ".join(self._job.benchmarks[:3])
-        if len(self._job.benchmarks) > 3:
-            benchmarks += f" +{len(self._job.benchmarks) - 3}"
-        yield Static(benchmarks, id="benchmarks")
-        yield Static(self._job.status.value.capitalize(), id="status-text")
+        benchmarks = list(self._job.evals.values())[0] if self._job.evals else []
+        benchmark_text = ", ".join(benchmarks[:3])
+        if len(benchmarks) > 3:
+            benchmark_text += f" +{len(benchmarks) - 3}"
+
+        # Single inline with middle dot separators
+        display = f"{self._job.id} · {model_text} · {benchmark_text}"
+
+        yield Static(STATUS_SYMBOLS[self._job.status], id="status")
+        yield Static(display, id="job-info")
 
     def on_click(self) -> None:
         """Handle click - select this job."""
@@ -141,15 +115,14 @@ class JobListModal(ModalScreen[str | None]):
     ╭─────────────────────────────────────╮
     │           View Progress             │
     ├─────────────────────────────────────┤
-    │  ● job_1   TeleQnA, TeleLogs Running│
-    │  ○ job_2   TeleMath         Pending │
-    │  ✕ job_3   3GPP             Failed  │
+    │  jobs_1   openai/gpt-4o   TeleQnA   │
+    │  jobs_2   anthropic/...   TeleMath  │
     │                                     │
     │              [Close]                │
     ╰─────────────────────────────────────╯
     """
 
-    CSS_PATH = "modal_base.tcss"
+    CSS_PATH = "../styles/modal_base.tcss"
 
     DEFAULT_CSS = """
     JobListModal {
@@ -185,14 +158,14 @@ class JobListModal(ModalScreen[str | None]):
 
     highlighted: reactive[int] = reactive(0)
 
-    def __init__(self, job_manager: JobManager | None = None) -> None:
+    def __init__(self, job_manager: JobManager) -> None:
         """Initialize the modal.
 
         Args:
-            job_manager: JobManager instance (creates new one if not provided)
+            job_manager: JobManager instance (required)
         """
         super().__init__()
-        self._job_manager = job_manager or JobManager()
+        self._job_manager = job_manager
         self._jobs: list[Job] = []
 
     def compose(self) -> ComposeResult:
@@ -253,13 +226,16 @@ class JobListModal(ModalScreen[str | None]):
         if event.key in ("down", "j"):
             self.highlighted = min(self.highlighted + 1, len(self._jobs) - 1)
             event.stop()
-        elif event.key in ("up", "k"):
+            return
+
+        if event.key in ("up", "k"):
             self.highlighted = max(self.highlighted - 1, 0)
             event.stop()
-        elif event.key in ("enter", "space"):
-            if 0 <= self.highlighted < len(self._jobs):
-                self.dismiss(self._jobs[self.highlighted].id)
-                event.stop()
+            return
+
+        if event.key in ("enter", "space") and 0 <= self.highlighted < len(self._jobs):
+            self.dismiss(self._jobs[self.highlighted].id)
+            event.stop()
 
     def action_close(self) -> None:
         """Close the modal."""

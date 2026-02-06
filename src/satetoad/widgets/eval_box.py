@@ -91,4 +91,6 @@ class EvalBox(HorizontalGroup):
             yield Digits(self._digit)
         with VerticalGroup():
             yield Label(self._name if self._name else " ", id="name")
-            yield Static(self._description if self._description else " ", id="description")
+            yield Static(
+                self._description if self._description else " ", id="description"
+            )

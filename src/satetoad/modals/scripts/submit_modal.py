@@ -16,7 +16,7 @@ from textual.containers import Vertical, Horizontal
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 
-from satetoad.modals.set_model_modal import ModelConfig
+from satetoad.services.config import ModelConfig
 
 
 @dataclass
@@ -54,7 +54,7 @@ class SubmitModal(ModalScreen[SubmitData | None]):
     ╰─────────────────────────────────────╯
     """
 
-    CSS_PATH = "modal_base.tcss"
+    CSS_PATH = "../styles/modal_base.tcss"
 
     # Fallback CSS for backdrop - ensures overlay effect
     DEFAULT_CSS = """

@@ -1,5 +1,8 @@
-"""Services package for Satetoad business logic."""
+"""Services package - import from subdirectories directly.
 
-from satetoad.services.job_manager import JobManager
-
-__all__ = ["JobManager"]
+Subpackages:
+- config: Model and environment configuration
+- evals: Evaluation running and job tracking
+- leaderboard: Leaderboard data types
+- submit: Submission services (placeholder)
+"""

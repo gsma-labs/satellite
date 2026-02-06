@@ -9,6 +9,9 @@ dependencies = [
     "huggingface-hub>=0.20.0",
     "pyarrow>=14.0.0",
     "evals @ git+https://github.com/otelcos/evals.git",
+    "inspect-ai",
+    "openai>=2.16.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]
@@ -17,6 +20,9 @@ satetoad = "satetoad.app:main"
 [project.optional-dependencies]
 dev = [
     "cairosvg>=2.8.2",
+    "psutil>=5.9.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
     "reportlab>=4.4.9",
     "svglib>=1.6.0",
 ]
@@ -30,3 +36,17 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/satetoad"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.0",
+]

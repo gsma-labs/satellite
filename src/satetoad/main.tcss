@@ -26,7 +26,6 @@ Screen {
 
 #header {
     align: center top;
-    dock: top;
     height: auto;
 }
 
@@ -35,19 +34,24 @@ Screen {
     border: none;
     background: #1E1F29;
     grid-size: 2 1;
-    height: auto;
+    height: 8;
     grid-columns: 30 1fr;
-    grid-rows: auto;
+    grid-rows: 8;
     grid-gutter: 1 2;
     min-width: 60;
-    min-height: 8;
+}
+
+/* JuliaSet fractal in header */
+JuliaSet {
+    border: none;
+    height: 8;
+    background: transparent;
 }
 
 /* Mandelbrot fractal in header */
 Mandelbrot {
     border: none;
-    height: 100%;
-    min-height: 8;
+    height: 8;
     background: transparent;
 }
 
@@ -324,6 +328,20 @@ DataTable {
 }
 
 /* ============================================
+   JOB LIST ITEM STATUS ICONS
+   ============================================ */
+
+JobListItem #status {
+    width: 2;
+    text-align: center;
+}
+
+JobListItem.-running #status { color: #50FA7B; }
+JobListItem.-success #status { color: #6272A4; }
+JobListItem.-cancelled #status { color: #FF5555; }
+JobListItem.-error #status { color: #FF5555; }
+
+/* ============================================
    FORM ELEMENTS
    ============================================ */
 
@@ -368,121 +386,66 @@ Button {
 }
 
 /* ============================================
-   TRAJECTORIES SCREEN
+   AGENT BOXES (Choose your fighter)
    ============================================ */
 
-TrajectoriesScreen {
+#agent-boxes {
+    height: auto;
+    padding: 1;
+    margin: 0;
+    grid-gutter: 1;
+    background: #282A36 80%;
+
+    &.-hidden {
+        display: none;
+    }
+}
+
+#agent-boxes AgentItem {
+    border: tall #6272A4 30%;
     background: #282A36;
-}
 
-#trajectory-header {
-    dock: top;
-    height: auto;
-    padding: 1;
-    background: #44475A;
-}
-
-#header-info {
-    width: 1fr;
-}
-
-#header-nav {
-    width: auto;
-    align: right middle;
-}
-
-#sample-counter {
-    width: auto;
-    padding: 0 1;
-    text-style: bold;
-}
-
-.-nav-btn {
-    min-width: 3;
-    margin: 0 0 0 1;
-}
-
-#trajectory-content {
-    height: 1fr;
-    padding: 1;
-}
-
-/* ============================================
-   TRAJECTORY SECTION WIDGETS
-   ============================================ */
-
-/* Section labels */
-.section-label {
-    color: #faf9f5 60%;
-    margin: 1 0 0 0;
-    text-style: bold;
-}
-
-/* Prompt section - truncated with expand */
-PromptSection {
-    margin: 0 1;
-    height: auto;
-
-    #prompt-content {
-        max-height: 5;
-        overflow-y: hidden;
+    &.-highlight {
         background: #44475A;
-        padding: 1;
-        border: round #BD93F9 30%;
+        border: tall #BD93F9;
+    }
+}
+
+AgentItem {
+    height: auto;
+    border: tall transparent;
+    padding: 0 1;
+
+    &:hover {
+        background: #44475A;
     }
 
-    &.-expanded #prompt-content {
-        max-height: 100%;
-        overflow-y: auto;
+    &.-highlight {
+        background: #44475A;
+        border: tall #BD93F9;
     }
 
-    &:focus {
-        #prompt-content {
-            border: round #BD93F9;
+    Grid {
+        grid-size: 2 1;
+        grid-columns: 1fr auto;
+        height: auto;
+
+        #type {
+            text-align: right;
         }
     }
-}
 
-/* Reasoning section */
-ReasoningSection {
-    margin: 0 1;
-    height: auto;
-
-    #reasoning-content {
-        background: #BD93F9 10%;
-        padding: 1;
-        border: round #BD93F9 30%;
-    }
-}
-
-/* Answer section */
-AnswerSection {
-    margin: 0 1;
-    height: auto;
-
-    #answer-content {
-        background: #44475A;
-        padding: 1;
-        border: round #6272A4 30%;
-    }
-}
-
-/* Comparison - side by side */
-ComparisonSection {
-    margin: 1;
-    height: auto;
-    min-height: 3;
-
-    #target, #llm {
-        width: 1fr;
-        padding: 1;
-        content-align: center middle;
-        text-align: center;
-        border: round #BD93F9 30%;
-        margin: 0 1 0 0;
+    #name {
+        text-style: bold;
+        color: #F8F8F2;
     }
 
-    #llm {
-        margin: 0;
+    #author {
+        text-style: italic;
+        color: #6272A4;
+    }
+
+    #description {
+        text-style: dim;
     }
 }

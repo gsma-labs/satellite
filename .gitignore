@@ -33,6 +33,7 @@ ENV/
 # IDE
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 *~
@@ -47,3 +48,7 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Evaluation logs (generated)
+logs/
+src/satetoad/jobs/

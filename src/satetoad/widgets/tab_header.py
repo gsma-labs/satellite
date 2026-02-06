@@ -5,7 +5,6 @@ Manages multiple TabItem widgets with keyboard navigation.
 
 from typing import ClassVar
 
-from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
@@ -193,6 +192,13 @@ class TabHeader(Horizontal):
         """Handle close request from TabItem."""
         event.stop()
         self.remove_tab(event.tab_id)
+
+    def on_click(self, event) -> None:
+        """Handle click - find which TabItem was clicked and activate it."""
+        for widget in event.widget.ancestors_with_self:
+            if isinstance(widget, TabItem):
+                self.activate_tab(widget.tab_id)
+                break
 
     def action_prev_tab(self) -> None:
         """Navigate to previous tab."""
