@@ -213,10 +213,12 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
             key_exists = (
                 env_var in self._env_manager.get_all_vars() if self._env_manager else False
             )
-            if key_exists:
-                hints.append(f"[green]✓ {env_var}[/green]")
-            else:
+            if not key_exists:
                 hints.append(f"[yellow]⚠ {env_var} not set (press 'c')[/yellow]")
+                hint_text = " | ".join(hints) if hints else "Enter full model name"
+                hint_widget.update(hint_text)
+                return
+            hints.append(f"[green]✓ {env_var}[/green]")
 
         hint_text = " | ".join(hints) if hints else "Enter full model name"
         hint_widget.update(hint_text)
@@ -331,7 +333,22 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         if cred_type != "base_url":
             # API keys managed via Configuration (press 'c'), not here
             credential = ""
-        elif not self._validate_base_url_credential(provider_data, credential):
+            # Validate model name and return config
+            if not model:
+                self.notify("Model name is required", severity="error")
+                self.query_one("#model-input", Input).focus()
+                return None
+
+            if not self._validate_model_name(model):
+                return None
+
+            return ModelConfig(
+                provider=provider_id,
+                api_key=credential,  # Empty for api_key types, URL for base_url
+                model=model,
+            )
+
+        if not self._validate_base_url_credential(provider_data, credential):
             return None
 
         # Validate model name
@@ -477,6 +494,8 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
     def _get_current_field_index(self) -> int | None:
         """Get the index of the currently focused field."""
+        from textual.css.query import NoMatches
+
         focused = self.app.focused
         if focused is None:
             return None
@@ -491,7 +510,7 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
                 if hasattr(focused, "ancestors_with_self"):
                     if field in focused.ancestors_with_self:
                         return index
-            except Exception:
+            except NoMatches:
                 pass
         return None
 
@@ -501,12 +520,15 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         if current is None:
             # Focus first field if nothing focused
             self.query_one(self._FOCUSABLE_FIELDS[0]).focus()
-        elif current < len(self._FOCUSABLE_FIELDS) - 1:
+            return
+
+        if current < len(self._FOCUSABLE_FIELDS) - 1:
             # Move to next field
             self.query_one(self._FOCUSABLE_FIELDS[current + 1]).focus()
-        else:
-            # At last field, focus Add button
-            self.query_one("#add-btn").focus()
+            return
+
+        # At last field, focus Add button
+        self.query_one("#add-btn").focus()
 
     def action_focus_previous_field(self) -> None:
         """Move focus to the previous form field (Up/k key)."""
@@ -514,17 +536,21 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         if current is None:
             # Focus last field if nothing focused
             self.query_one(self._FOCUSABLE_FIELDS[-1]).focus()
-        elif current > 0:
+            return
+
+        if current > 0:
             # Move to previous field
             self.query_one(self._FOCUSABLE_FIELDS[current - 1]).focus()
 
     def on_key(self, event: events.Key) -> None:
         """Handle key events - intercept up/down/enter when dropdown is closed."""
+        from textual.css.query import NoMatches
+
         # Check if provider dropdown is expanded
         try:
             provider_select = self.query_one("#provider-select", Select)
             dropdown_open = provider_select.expanded
-        except Exception:
+        except NoMatches:
             dropdown_open = False
 
         # If dropdown is open, let SelectOverlay handle all keys
@@ -535,15 +561,21 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         if event.key in ("up", "k"):
             event.stop()
             self.action_focus_previous_field()
-        elif event.key in ("down", "j"):
+            return
+
+        if event.key in ("down", "j"):
             event.stop()
             self.action_focus_next_field()
-        elif event.key == "enter":
+            return
+
+        if event.key == "enter":
             event.stop()
             self.action_activate_field()
 
     def _is_widget_focused(self, widget_id: str) -> bool:
         """Check if a widget (or its child) has focus."""
+        from textual.css.query import NoMatches
+
         try:
             widget = self.query_one(widget_id)
             focused = self.app.focused
@@ -552,7 +584,7 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
             # Check if focused widget is a child of the target
             if hasattr(focused, "ancestors_with_self"):
                 return widget in focused.ancestors_with_self
-        except Exception:
+        except NoMatches:
             pass
         return False
 

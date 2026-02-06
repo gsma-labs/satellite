@@ -74,7 +74,7 @@ class EnvVarsModal(ModalScreen[bool]):
                 env_vars = self._env_manager.get_all_vars()
                 if not env_vars:
                     yield Static("No variables configured", classes="empty-message")
-                else:
+                if env_vars:
                     for name, value in sorted(env_vars.items()):
                         yield EnvVarItem(name, value)
 
@@ -113,9 +113,9 @@ class EnvVarsModal(ModalScreen[bool]):
         env_vars = self._env_manager.get_all_vars()
         if not env_vars:
             vars_list.mount(Static("No variables configured", classes="empty-message"))
-        else:
-            for name, value in sorted(env_vars.items()):
-                vars_list.mount(EnvVarItem(name, value))
+            return
+        for name, value in sorted(env_vars.items()):
+            vars_list.mount(EnvVarItem(name, value))
 
     def _clear_form(self) -> None:
         """Clear the form inputs and reset to add mode."""
@@ -170,10 +170,8 @@ class EnvVarsModal(ModalScreen[bool]):
         self._env_manager.set_var(name, value)
         self._changes_made = True
 
-        if self._editing_var:
-            self.notify(f"Updated {name}", severity="information")
-        else:
-            self.notify(f"Added {name}", severity="information")
+        message = f"Updated {name}" if self._editing_var else f"Added {name}"
+        self.notify(message, severity="information")
 
         self._clear_form()
         self._refresh_list()
@@ -232,6 +230,7 @@ class EnvVarsModal(ModalScreen[bool]):
         if event.input.id == "var-name-input":
             # Move to value input
             self.query_one("#var-value-input", Input).focus()
-        elif event.input.id == "var-value-input":
+            return
+        if event.input.id == "var-value-input":
             # Submit the form
             self._add_or_update_var()

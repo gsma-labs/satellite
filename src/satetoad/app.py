@@ -98,7 +98,7 @@ class SatetoadApp(App):
                 stderr=subprocess.PIPE,
                 stdin=subprocess.DEVNULL,
             )
-        except Exception:
+        except (FileNotFoundError, OSError, subprocess.SubprocessError):
             pass  # Silently fail if inspect view can't launch
 
     def _stop_view_process(self) -> None:

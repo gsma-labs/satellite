@@ -145,8 +145,8 @@ class ConfiguredModelsList(VerticalScroll):
         """Add/remove empty class based on model count."""
         if self._models:
             self.remove_class("empty")
-        else:
-            self.add_class("empty")
+            return
+        self.add_class("empty")
 
     def add_model(self, config: "ModelConfig", normalized_path: str) -> None:
         """Add a model to the list.

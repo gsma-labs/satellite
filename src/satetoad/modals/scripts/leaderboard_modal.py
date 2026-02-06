@@ -90,7 +90,7 @@ class LeaderboardModal(ModalScreen[None]):
         try:
             entries = fetch_leaderboard()
             self.app.call_from_thread(self._show_leaderboard, entries)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             self.app.call_from_thread(self._show_error, str(e))
 
     def _show_leaderboard(self, entries: list[LeaderboardEntry]) -> None:

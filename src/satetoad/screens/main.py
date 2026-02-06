@@ -297,7 +297,9 @@ class MainScreen(Screen):
                 f"Provider: {configs[0].provider}\nModel: {configs[0].model}",
                 title="Model Configured",
             )
-        elif model_count > 1:
+            return
+
+        if model_count > 1:
             model_names = ", ".join(c.model for c in configs[:3])
             if model_count > 3:
                 model_names += f" (+{model_count - 3} more)"
