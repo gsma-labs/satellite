@@ -31,7 +31,7 @@ from satetoad.widgets.tab_item import TabItem
 class JobDetailModalTestApp(App):
     """Test app for JobDetailModal in isolation."""
 
-    def __init__(self, job: Job, results: dict[str, float] | None = None) -> None:
+    def __init__(self, job: Job, results: dict[str, dict[str, float]] | None = None) -> None:
         super().__init__()
         self._job = job
         self._results = results
@@ -88,77 +88,72 @@ class TestJobDetailModalResultsDisplay:
             status="success",
         )
 
-    async def test_modal_shows_no_results_when_results_is_none(
+    async def test_modal_shows_pending_scores_when_results_is_none(
         self, sample_job: Job
     ) -> None:
-        """JobDetailModal shows 'No results yet' when results is None."""
+        """JobDetailModal shows '--' pending markers when results is None."""
         app = JobDetailModalTestApp(job=sample_job, results=None)
 
         async with app.run_test():
             modal = app.screen
 
-            result_items = list(modal.query(".result-item"))
-            assert len(result_items) == 1
-            # Check the content property contains the expected text
-            content = str(result_items[0].content)
-            assert "No results yet" in content
+            pending_cells = list(modal.query(".score-pending"))
+            # 1 model x 2 benchmarks = 2 pending cells
+            assert len(pending_cells) == 2
 
-    async def test_modal_shows_no_results_when_results_is_empty(
+    async def test_modal_shows_pending_scores_when_results_is_empty(
         self, sample_job: Job
     ) -> None:
-        """JobDetailModal shows 'No results yet' when results is empty dict."""
+        """JobDetailModal shows '--' pending markers when results is empty dict."""
         app = JobDetailModalTestApp(job=sample_job, results={})
 
         async with app.run_test():
             modal = app.screen
 
-            result_items = list(modal.query(".result-item"))
-            assert len(result_items) == 1
-            content = str(result_items[0].content)
-            assert "No results yet" in content
+            pending_cells = list(modal.query(".score-pending"))
+            assert len(pending_cells) == 2
 
     async def test_modal_displays_results_when_provided(
         self, sample_job: Job
     ) -> None:
         """JobDetailModal displays actual scores when results provided."""
-        results = {"teleqna": 0.85, "telemath": 0.72}
+        results = {"openai/gpt-4o": {"teleqna": 0.85, "telemath": 0.72}}
         app = JobDetailModalTestApp(job=sample_job, results=results)
 
         async with app.run_test():
             modal = app.screen
 
-            result_items = list(modal.query(".result-item"))
-            # Should have 2 result items, not the "No results yet" message
-            assert len(result_items) == 2
+            # No pending cells when all results are available
+            pending_cells = list(modal.query(".score-pending"))
+            assert len(pending_cells) == 0
 
-            # Combine all result text for checking
-            result_text = " ".join(str(item.content) for item in result_items)
-            assert "teleqna" in result_text
-            assert "telemath" in result_text
-            assert "0.85" in result_text
-            assert "0.72" in result_text
+            # Scores rendered as {score:.2f} in .scores-cell elements
+            score_cells = list(modal.query(".scores-cell"))
+            score_text = " ".join(str(cell.render()) for cell in score_cells)
+            assert "0.85" in score_text
+            assert "0.72" in score_text
 
     @pytest.mark.parametrize(
-        ("benchmark", "score", "expected_pct"),
+        ("score", "expected_text"),
         [
-            pytest.param("teleqna", 0.95, "95%", id="high_score"),
-            pytest.param("telemath", 0.50, "50%", id="mid_score"),
-            pytest.param("telelogs", 0.0, "0%", id="zero_score"),
+            pytest.param(0.95, "0.95", id="high_score"),
+            pytest.param(0.50, "0.50", id="mid_score"),
+            pytest.param(0.0, "0.00", id="zero_score"),
         ],
     )
-    async def test_modal_formats_scores_as_percentage(
-        self, sample_job: Job, benchmark: str, score: float, expected_pct: str
+    async def test_modal_formats_scores_as_decimal(
+        self, sample_job: Job, score: float, expected_text: str
     ) -> None:
-        """JobDetailModal formats scores with percentage."""
-        results = {benchmark: score}
+        """JobDetailModal formats scores as {score:.2f} decimal."""
+        results = {"openai/gpt-4o": {"teleqna": score, "telemath": score}}
         app = JobDetailModalTestApp(job=sample_job, results=results)
 
         async with app.run_test():
             modal = app.screen
 
-            result_items = list(modal.query(".result-item"))
-            result_text = str(result_items[0].content)
-            assert expected_pct in result_text
+            score_cells = list(modal.query(".scores-cell"))
+            all_text = " ".join(str(cell.render()) for cell in score_cells)
+            assert expected_text in all_text
 
 
 # ============================================================================
@@ -187,21 +182,15 @@ class TestJobSelectionFetchesResults:
 
         manager.list_jobs.return_value = [sample_job]
         manager.get_job.return_value = sample_job
-        manager.get_job_results.return_value = {"teleqna": 0.85}
+        manager.get_job_results.return_value = {"openai/gpt-4o": {"teleqna": 0.85}}
 
         return manager
 
-    @patch("satetoad.modals.tabbed_evals_modal.get_benchmarks")
     async def test_selecting_job_calls_get_job_results(
         self,
-        mock_get_benchmarks: MagicMock,
         job_manager_with_results: MagicMock,
     ) -> None:
         """Selecting a job from View Progress calls get_job_results()."""
-        mock_get_benchmarks.return_value = [
-            {"id": "teleqna", "name": "TeleQnA", "description": "QA benchmark"}
-        ]
-
         model_configs = [
             ModelConfig(provider="openai", api_key="sk-test", model="gpt-4o")
         ]
@@ -229,17 +218,11 @@ class TestJobSelectionFetchesResults:
         # Verify get_job_results was called
         job_manager_with_results.get_job_results.assert_called_once_with("job_1")
 
-    @patch("satetoad.modals.tabbed_evals_modal.get_benchmarks")
     async def test_job_detail_modal_receives_results(
         self,
-        mock_get_benchmarks: MagicMock,
         job_manager_with_results: MagicMock,
     ) -> None:
         """JobDetailModal receives results when opened from job selection."""
-        mock_get_benchmarks.return_value = [
-            {"id": "teleqna", "name": "TeleQnA", "description": "QA benchmark"}
-        ]
-
         model_configs = [
             ModelConfig(provider="openai", api_key="sk-test", model="gpt-4o")
         ]
@@ -264,7 +247,7 @@ class TestJobSelectionFetchesResults:
 
         # Verify the pushed modal received results
         assert app.pushed_detail_modal is not None
-        assert app.pushed_detail_modal._results == {"teleqna": 0.85}
+        assert app.pushed_detail_modal._results == {"openai/gpt-4o": {"teleqna": 0.85}}
 
 
 # ============================================================================

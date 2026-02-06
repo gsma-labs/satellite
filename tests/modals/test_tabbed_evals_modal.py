@@ -1,12 +1,11 @@
 """Tests for TabbedEvalsModal rendering and tab functionality."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from textual.app import App
 from textual.widgets import Button
 
-from satetoad.modals.set_model_modal import ModelConfig
-from satetoad.modals.tabbed_evals_modal import TabbedEvalsModal
+from satetoad.modals import ModelConfig, TabbedEvalsModal
 from satetoad.services.config import EvalSettingsManager
 from satetoad.services.evals import JobManager
 from satetoad.widgets.eval_list import EvalList
@@ -40,18 +39,12 @@ class TabbedEvalsModalTestApp(App):
 class TestTabbedEvalsModalRendering:
     """Tests for TabbedEvalsModal initial rendering."""
 
-    @patch("satetoad.modals.tabbed_evals_modal.get_benchmarks")
     async def test_modal_renders_evals_and_progress_tabs(
         self,
-        mock_get_benchmarks: MagicMock,
         mock_job_manager: MagicMock,
         sample_model_config: list[ModelConfig],
     ) -> None:
         """TabbedEvalsModal renders with correct tabs and default state."""
-        mock_get_benchmarks.return_value = [
-            {"id": "test-bench", "name": "Test Benchmark", "description": "Test"}
-        ]
-
         app = TabbedEvalsModalTestApp(
             model_configs=sample_model_config,
             job_manager=mock_job_manager,
@@ -62,8 +55,8 @@ class TestTabbedEvalsModalRendering:
             tab_header = modal.query_one("#tab-header", TabHeader)
             tabs = list(tab_header.query(TabItem))
 
-            assert tab_header.get_tab_ids() == ["run-evals", "view-progress"]
-            assert [tab.label for tab in tabs] == ["Evals", "Progress"]
+            assert tab_header.get_tab_ids() == ["run-evals", "view-progress", "settings"]
+            assert [tab.label for tab in tabs] == ["Evals", "Progress", "Settings"]
             assert tab_header.active_tab == "run-evals"
             assert tabs[0].has_class("-active")
             assert not tabs[1].has_class("-active")
@@ -72,25 +65,18 @@ class TestTabbedEvalsModalRendering:
 class TestTabbedEvalsModalTabSwitching:
     """Tests for tab switching behavior."""
 
-    @patch("satetoad.modals.tabbed_evals_modal.get_benchmarks")
     async def test_clicking_progress_tab_switches_active_tab(
         self,
-        mock_get_benchmarks: MagicMock,
         mock_job_manager: MagicMock,
         sample_model_config: list[ModelConfig],
     ) -> None:
         """Clicking Progress tab switches active state."""
-        mock_get_benchmarks.return_value = [
-            {"id": "test-bench", "name": "Test Benchmark", "description": "Test"}
-        ]
-
         app = TabbedEvalsModalTestApp(
             model_configs=sample_model_config,
             job_manager=mock_job_manager,
         )
 
         async with app.run_test() as pilot:
-            # Wait for layout to complete before interacting with widgets
             await pilot.pause()
 
             modal = app.screen
@@ -109,53 +95,39 @@ class TestTabbedEvalsModalTabSwitching:
 class TestTabbedEvalsModalButtons:
     """Tests for button interactions."""
 
-    @patch("satetoad.modals.tabbed_evals_modal.get_benchmarks")
     async def test_cancel_button_dismisses_modal(
         self,
-        mock_get_benchmarks: MagicMock,
         mock_job_manager: MagicMock,
         sample_model_config: list[ModelConfig],
     ) -> None:
         """Cancel button dismisses modal."""
-        mock_get_benchmarks.return_value = [
-            {"id": "test-bench", "name": "Test Benchmark", "description": "Test"}
-        ]
-
         app = TabbedEvalsModalTestApp(
             model_configs=sample_model_config,
             job_manager=mock_job_manager,
         )
 
         async with app.run_test() as pilot:
-            # Verify modal is active
             assert isinstance(app.screen, TabbedEvalsModal)
 
             cancel_btn = app.screen.query_one("#cancel-btn", Button)
             await pilot.click(cancel_btn)
             await pilot.pause()
 
-            # Modal should be dismissed (no longer the active screen)
+            # Modal should be dismissed
             assert not isinstance(app.screen, TabbedEvalsModal)
 
-    @patch("satetoad.modals.tabbed_evals_modal.get_benchmarks")
     async def test_close_button_on_progress_tab_dismisses_modal(
         self,
-        mock_get_benchmarks: MagicMock,
         mock_job_manager: MagicMock,
         sample_model_config: list[ModelConfig],
     ) -> None:
         """Close button on Progress tab dismisses modal."""
-        mock_get_benchmarks.return_value = [
-            {"id": "test-bench", "name": "Test Benchmark", "description": "Test"}
-        ]
-
         app = TabbedEvalsModalTestApp(
             model_configs=sample_model_config,
             job_manager=mock_job_manager,
         )
 
         async with app.run_test() as pilot:
-            # Wait for layout to complete before interacting with widgets
             await pilot.pause()
 
             modal = app.screen
@@ -169,21 +141,14 @@ class TestTabbedEvalsModalButtons:
             await pilot.click(close_btn)
             await pilot.pause()
 
-            # Modal should be dismissed
             assert not isinstance(app.screen, TabbedEvalsModal)
 
-    @patch("satetoad.modals.tabbed_evals_modal.get_benchmarks")
     async def test_run_button_without_selection_keeps_modal_open(
         self,
-        mock_get_benchmarks: MagicMock,
         mock_job_manager: MagicMock,
         sample_model_config: list[ModelConfig],
     ) -> None:
         """Run button without selected benchmarks keeps modal open."""
-        mock_get_benchmarks.return_value = [
-            {"id": "test-bench", "name": "Test Benchmark", "description": "Test"}
-        ]
-
         app = TabbedEvalsModalTestApp(
             model_configs=sample_model_config,
             job_manager=mock_job_manager,

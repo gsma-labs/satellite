@@ -7,12 +7,12 @@ Run with: uv run pytest tests/integration/test_eval_runner.py -v
 import os
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from dotenv import load_dotenv
 
-from satetoad.eval_runner import load_task
+from satetoad.services.evals.worker import load_task
 from satetoad.services.evals import EvalRunner
 from satetoad.services.evals.job_manager import Job, JobManager
 
@@ -58,34 +58,32 @@ class TestEvalSetParameters:
     """Verify eval_set is called with correct parameters."""
 
     def test_eval_set_called_with_correct_params(self, tmp_path: Path) -> None:
-        """eval_set should receive limit=1, log_format=json, display=none."""
+        """run_eval_set passes correct config via subprocess stdin."""
+        import json
+
         jobs_dir = tmp_path / "jobs"
         jobs_dir.mkdir()
-        (jobs_dir / "counter.txt").write_text("0")
 
-        manager = JobManager(jobs_dir)
-        runner = EvalRunner()
+        runner = EvalRunner(jobs_dir)
 
         job = Job(
             id="test_params",
-            model="openrouter/openai/gpt-4o-mini",
-            benchmarks=["teleqna"],
-            created_at=datetime.now(),
+            evals={"openrouter/openai/gpt-4o-mini": ["teleqna"]},
             status="running",
         )
 
-        with patch("satetoad.services.evals.inspect_runner.eval_set") as mock_eval_set:
-            mock_eval_set.return_value = (True, [])
+        with patch("satetoad.services.evals.runner.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stderr="")
 
             runner.run_job(job)
 
-            mock_eval_set.assert_called_once()
-            call_kwargs = mock_eval_set.call_args.kwargs
+            mock_run.assert_called_once()
+            call_kwargs = mock_run.call_args[1]
+            config = json.loads(call_kwargs["input"])
 
-            assert call_kwargs["limit"] == 1
-            assert call_kwargs["log_format"] == "json"
-            assert call_kwargs["display"] == "none"
-            assert call_kwargs["model"] == "openrouter/openai/gpt-4o-mini"
+            assert config["limit"] == 1
+            assert config["model"] == "openrouter/openai/gpt-4o-mini"
+            assert config["benchmarks"] == ["teleqna"]
 
 
 @requires_api_key
@@ -105,14 +103,11 @@ class TestRealEvalExecution:
         jobs_dir.mkdir()
         (jobs_dir / "counter.txt").write_text("0")
 
-        manager = JobManager(jobs_dir)
-        runner = EvalRunner()
+        runner = EvalRunner(jobs_dir)
 
         job = Job(
             id="integration_test",
-            model="openrouter/openai/gpt-4o-mini",
-            benchmarks=["teleqna"],
-            created_at=datetime.now(),
+            evals={"openrouter/openai/gpt-4o-mini": ["teleqna"]},
             status="running",
         )
 
