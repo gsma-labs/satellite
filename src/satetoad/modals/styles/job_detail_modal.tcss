@@ -6,9 +6,9 @@ JobDetailModal {
 }
 
 JobDetailModal #container {
-    width: 60;
-    max-width: 70;
-    height: 80%;
+    width: 90%;
+    height: auto;
+    max-height: 80%;
     padding: 0 2 1 2;
     background: #1E1F29;
     border: thick #BD93F9 20%;
@@ -39,8 +39,7 @@ JobDetailModal #close-x:hover {
     color: #FF5555;
 }
 
-JobDetailModal #detail-scroll {
-    height: 1fr;
+JobDetailModal .detail-section {
     padding: 0 1;
 }
 
@@ -78,4 +77,51 @@ JobDetailModal .benchmark-item,
 JobDetailModal .result-item {
     color: #F8F8F2;
     margin-left: 1;
+}
+
+/* Scores table container */
+JobDetailModal #scores-table {
+    width: 100%;
+    height: auto;
+    max-height: 8;
+    margin-top: 1;
+    border: solid #44475A;
+    background: #282A36;
+    overflow-y: hidden;
+}
+
+JobDetailModal .scores-row {
+    width: auto;
+    height: 1;
+}
+
+JobDetailModal .scores-header {
+    background: #44475A;
+}
+
+JobDetailModal .scores-header Static {
+    color: #F8F8F2;
+}
+
+JobDetailModal .scores-model {
+    width: 20;
+    text-align: left;
+    color: #F8F8F2;
+    padding: 0 1;
+}
+
+JobDetailModal .scores-cell {
+    width: auto;
+    min-width: 10;
+    padding: 0 1;
+    text-align: center;
+    color: #F8F8F2;
+}
+
+JobDetailModal .scores-cell:last-child {
+    border-right: none;
+}
+
+JobDetailModal .score-pending {
+    color: #6272A4;
 }

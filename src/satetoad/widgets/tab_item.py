@@ -128,22 +128,6 @@ class TabItem(HorizontalGroup):
         else:
             self.remove_class("-active")
 
-    def on_click(self, event: events.Click) -> None:
-        """Handle click - activate tab or close if clicking close button."""
-        # Check if click was on close button
-        try:
-            close_btn = self.query_one("#close-btn")
-            # Get click coordinates relative to the widget
-            if self._closable and close_btn.region.contains(event.x, event.y):
-                event.stop()
-                self.post_message(self.CloseRequested(self._tab_id))
-                return
-        except Exception:
-            pass
-
-        event.stop()
-        self.post_message(self.Activated(self._tab_id))
-
     def on_key(self, event: events.Key) -> None:
         """Handle key press - Enter activates, Delete/Backspace closes."""
         if event.key in ("enter", "space"):

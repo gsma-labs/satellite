@@ -13,9 +13,11 @@ from textual.containers import Vertical, Horizontal, Center
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static, DataTable, LoadingIndicator
 
-from satetoad.services.eval_registry import get_available_evals
-from satetoad.services.huggingface_client import HuggingFaceError, fetch_leaderboard
-from satetoad.services.leaderboard_types import LeaderboardEntry
+from satetoad.services.evals import BENCHMARKS_BY_ID
+from satetoad.services.leaderboard import (
+    LeaderboardEntry,
+    fetch_leaderboard,
+)
 
 
 class LeaderboardModal(ModalScreen[None]):
@@ -37,7 +39,7 @@ class LeaderboardModal(ModalScreen[None]):
     +------------------------------------------------------------------+
     """
 
-    CSS_PATH = "modal_base.tcss"
+    CSS_PATH = "../styles/modal_base.tcss"
 
     DEFAULT_CSS = """
     LeaderboardModal {
@@ -88,7 +90,7 @@ class LeaderboardModal(ModalScreen[None]):
         try:
             entries = fetch_leaderboard()
             self.app.call_from_thread(self._show_leaderboard, entries)
-        except HuggingFaceError as e:
+        except Exception as e:
             self.app.call_from_thread(self._show_error, str(e))
 
     def _show_leaderboard(self, entries: list[LeaderboardEntry]) -> None:
@@ -110,9 +112,8 @@ class LeaderboardModal(ModalScreen[None]):
         table.add_column("TCI", key="tci", width=7)
 
         # Add dynamic eval columns from registry
-        evals = get_available_evals()
-        for eval_info in evals:
-            table.add_column(eval_info.short_name, key=eval_info.id, width=7)
+        for benchmark in BENCHMARKS_BY_ID.values():
+            table.add_column(benchmark.short_name, key=benchmark.id, width=7)
 
         # Add rows with dynamic scores
         for rank, entry in enumerate(entries, start=1):
@@ -122,8 +123,8 @@ class LeaderboardModal(ModalScreen[None]):
                 entry.provider,
                 self._format_score(entry.tci),
             ]
-            for eval_info in evals:
-                row_data.append(self._format_score(entry.scores.get(eval_info.id)))
+            for benchmark in BENCHMARKS_BY_ID.values():
+                row_data.append(self._format_score(entry.scores.get(benchmark.id)))
             table.add_row(*row_data)
 
         # Enable cursor navigation

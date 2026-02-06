@@ -81,6 +81,57 @@ SetModelModal .model-hint {
     height: 1;
 }
 
+/* Configured models list */
+SetModelModal #models-list {
+    height: auto;
+    max-height: 8;
+    margin-bottom: 1;
+    border: tall black 20%;
+    background: transparent;
+}
+
+SetModelModal #models-list.empty {
+    height: 2;
+}
+
+SetModelModal #models-list .empty-message {
+    color: #faf9f5 40%;
+    text-style: italic;
+    padding: 0 1;
+}
+
+/* Configured model item */
+SetModelModal ConfiguredModelItem {
+    height: auto;
+    padding: 0 1;
+    background: transparent;
+}
+
+SetModelModal ConfiguredModelItem:hover {
+    background: #BD93F9 10%;
+}
+
+SetModelModal ConfiguredModelItem .provider-badge {
+    color: #BD93F9;
+    margin-right: 1;
+}
+
+SetModelModal ConfiguredModelItem .model-name {
+    color: #F8F8F2;
+}
+
+SetModelModal ConfiguredModelItem .delete-btn {
+    min-width: 3;
+    max-width: 3;
+    background: transparent;
+    border: none;
+    color: #FF5555;
+}
+
+SetModelModal ConfiguredModelItem .delete-btn:hover {
+    background: #FF5555 20%;
+}
+
 /* Button container */
 SetModelModal #buttons {
     margin-top: 1;
@@ -136,6 +187,21 @@ SetModelModal #buttons #save-btn:focus {
     border: tall #BD93F9;
     tint: transparent;
     background-tint: transparent;
+}
+
+/* Add button - secondary action */
+SetModelModal #buttons #add-btn {
+    background: #50FA7B 20%;
+    border: tall #50FA7B 40%;
+    color: #F8F8F2;
+}
+
+SetModelModal #buttons #add-btn:hover {
+    background: #50FA7B 35%;
+}
+
+SetModelModal #buttons #add-btn:focus {
+    border: tall #50FA7B;
 }
 
 /* Cancel button - subtle styling */

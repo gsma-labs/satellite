@@ -24,28 +24,42 @@ Layout:
 All options open as modal overlays (Toad pattern) for a consistent UX.
 """
 
-from textual.app import ComposeResult
-from textual.screen import Screen
-from textual.widgets import Footer
-from textual.binding import Binding
-from textual.containers import VerticalGroup, Grid
-from textual import on
+from pathlib import Path
 
-from textual.widgets import Static
-from satetoad.models.job import Job
-from satetoad.services.job_manager import JobManager
-from satetoad.widgets.julia_set import JuliaSet
-from satetoad.widgets.grid_select import GridSelect
-from satetoad.widgets.eval_box import EvalBox
+from textual import on, work
+from textual.app import ComposeResult
+from textual.binding import Binding
+from textual.containers import Grid, VerticalGroup
+from textual.screen import Screen
+from textual.widgets import Footer, Static
+
+from satetoad.examples.eval_data import (
+    AGENTS,
+    AGENTS_BY_SHORTCUT,
+    APP_INFO,
+    EVAL_BOXES,
+    MODEL_BOXES,
+)
 from satetoad.modals import (
+    EnvVarsModal,
+    LeaderboardModal,
     ModelConfig,
     SetModelModal,
-    LeaderboardModal,
     SubmitData,
     SubmitModal,
+    TabbedEvalsModal,
 )
-from satetoad.modals.tabbed_evals_modal import TabbedEvalsModal
-from satetoad.examples.eval_data import EVAL_BOXES, MODEL_BOXES, APP_INFO
+from satetoad.services.config import EnvConfigManager, EvalSettingsManager
+from satetoad.services.evals import EvalResult, Job, JobManager
+from satetoad.services.evals.job_manager import DEFAULT_JOBS_DIR
+from satetoad.widgets.agent_item import AgentItem
+from satetoad.widgets.eval_box import EvalBox
+from satetoad.widgets.grid_select import GridSelect
+from satetoad.widgets.julia_set import JuliaSet
+
+# Project root (4 levels up from screens/main.py: screens → satetoad → src → root)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_ENV_PATH = _PROJECT_ROOT / ".env"
 
 
 class MainScreen(Screen):
@@ -70,28 +84,34 @@ class MainScreen(Screen):
         Binding("5", "goto_cloud_apis", "Cloud APIs", show=False),
         Binding("6", "goto_open_hosted", "Open Hosted", show=False),
         Binding("7", "goto_open_local", "Open Local", show=False),
-        # Unused quick launch keys
-        Binding("8", "quick_launch", "", show=False),
-        Binding("9", "quick_launch", "", show=False),
-        Binding("a", "quick_launch", "", show=False),
-        Binding("b", "quick_launch", "", show=False),
-        Binding("c", "quick_launch", "", show=False),
-        Binding("d", "quick_launch", "", show=False),
-        Binding("e", "quick_launch", "", show=False),
+        # Agent quick launch keys
+        Binding("8", "launch_agent('8')", "React", show=False),
+        Binding("9", "launch_agent('9')", "Claude Code", show=False),
+        Binding("a", "launch_agent('a')", "Codex CLI", show=False),
+        Binding("b", "launch_agent('b')", "Gemini CLI", show=False),
+        Binding("c", "env_vars", "Env Vars"),
+        Binding("d", "launch_agent('d')", "OpenHands", show=False),
+        Binding("e", "launch_agent('e')", "OpenCode", show=False),
         Binding("f", "quick_launch", "", show=False),
         # Resume
         Binding("ctrl+r", "resume", "Resume", show=False),
         Binding("?", "help", "Help", show=False),
     ]
 
-    # Store the current model configuration (set via modal)
-    _current_config: ModelConfig | None = None
+    # Store configured models (set via modal, supports multi-model)
+    _configured_models: list[ModelConfig] = []
 
     # Store evaluation results (benchmark_id -> score)
     _eval_results: dict[str, float] | None = None
 
     # Job manager for persistent job storage
     _job_manager: JobManager | None = None
+
+    # Environment config manager for .env persistence
+    _env_config_manager: EnvConfigManager | None = None
+
+    # Eval settings manager for settings persistence
+    _settings_manager: EvalSettingsManager | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the evaluation interface layout.
@@ -102,8 +122,9 @@ class MainScreen(Screen):
         - "Models" heading with underline
         - Model category boxes (Lab APIs, Cloud APIs, Open Hosted, Open Local)
         """
-        # Initialize job manager
-        self._job_manager = JobManager()
+        # Initialize managers
+        self._job_manager = JobManager(DEFAULT_JOBS_DIR)
+        self._settings_manager = EvalSettingsManager()
 
         # Header with Julia set and app info side by side
         with VerticalGroup(id="header"):
@@ -134,131 +155,210 @@ class MainScreen(Screen):
                     box_id=box["id"],
                 )
 
+        # Agents section heading
+        yield Static("Agents", classes="heading")
+
+        # Agent grid (Choose your fighter)
+        with GridSelect(id="agent-boxes", min_column_width=32, max_column_width=50):
+            for agent in AGENTS:
+                yield AgentItem(
+                    agent_id=agent["id"],
+                    agent_name=agent["name"],
+                    author_name=agent["author_name"],
+                    description=agent["description"],
+                    agent_type=agent["type"],
+                )
+
         yield Footer()
 
     def on_mount(self) -> None:
-        """Focus the action boxes on screen mount."""
+        """Initialize managers and load persisted models on mount."""
+        self._env_config_manager = EnvConfigManager(_ENV_PATH)
+        self._load_models_from_env()
         self.query_one("#action-boxes", GridSelect).focus()
+
+    def _load_models_from_env(self) -> None:
+        """Load models from .env file into _configured_models."""
+        if self._env_config_manager is None:
+            return
+        self._configured_models = self._env_config_manager.load_models()
 
     def _get_info(self) -> str:
         """Generate app info text."""
         return f"""\
-[bold]{APP_INFO['name']}[/] [dim]v{APP_INFO['version']}[/]
-[#50FA7B]{APP_INFO['tagline']}[/]
-[dim]{APP_INFO['subtitle']}[/]
+🛰️ [bold]{APP_INFO["name"]}[/bold] [dim]v{APP_INFO["version"]}[/dim]  [@click=screen.open_logs][underline]Logs[/underline][/]
+[#50FA7B]{APP_INFO["tagline"]}[/#50FA7B]
 
-[dim]Use arrow keys to navigate, Enter to select[/]
-[dim]Press 1-3 for quick access[/]
+
+
+
+[dim]Developed by [@click=screen.open_site][underline]GSMA Labs[/underline][/][/dim]
 """
+
+    def action_open_logs(self) -> None:
+        """Open the logs URL in browser."""
+        import webbrowser
+
+        webbrowser.open("http://localhost:7575")
+
+    def action_open_site(self) -> None:
+        """Open the GSMA Labs website."""
+        import webbrowser
+
+        webbrowser.open("https://www.gsma.com/")
 
     @on(GridSelect.LeaveDown, "#action-boxes")
     def on_action_leave_down(self, event: GridSelect.LeaveDown) -> None:
         """Move focus from action-boxes to model-boxes when pressing down at bottom."""
-        self.query_one("#model-boxes", GridSelect).focus()
+        self.query_one("#model-boxes", GridSelect).focus_at_column(
+            event.column_x, from_direction="down"
+        )
 
     @on(GridSelect.LeaveUp, "#model-boxes")
     def on_model_leave_up(self, event: GridSelect.LeaveUp) -> None:
         """Move focus from model-boxes back to action-boxes when pressing up at top."""
-        self.query_one("#action-boxes", GridSelect).focus()
+        self.query_one("#action-boxes", GridSelect).focus_at_column(
+            event.column_x, from_direction="up"
+        )
+
+    @on(GridSelect.LeaveDown, "#model-boxes")
+    def on_model_leave_down(self, event: GridSelect.LeaveDown) -> None:
+        """Move focus from model-boxes to agent-boxes when pressing down at bottom."""
+        self.query_one("#agent-boxes", GridSelect).focus_at_column(
+            event.column_x, from_direction="down"
+        )
+
+    @on(GridSelect.LeaveUp, "#agent-boxes")
+    def on_agent_leave_up(self, event: GridSelect.LeaveUp) -> None:
+        """Move focus from agent-boxes back to model-boxes when pressing up at top."""
+        self.query_one("#model-boxes", GridSelect).focus_at_column(
+            event.column_x, from_direction="up"
+        )
 
     @on(GridSelect.Selected)
     def on_box_selected(self, event: GridSelect.Selected) -> None:
         """Handle box selection - open corresponding modal overlay."""
         widget = event.selected_widget
+
+        # Handle agent items
+        if hasattr(widget, "agent_id"):
+            self._launch_agent(widget.agent_id, widget._agent_name)
+            return
+
         if not hasattr(widget, "box_id"):
             return
 
+        # Model categories that open filtered modal
+        model_categories = {"lab-apis", "cloud-apis", "open-hosted", "open-local"}
+
+        if widget.box_id in model_categories:
+            self._show_model_modal(widget.box_id)
+            return
+
         handlers = {
-            # Action boxes
             "evals": self._show_evals_modal,
             "leaderboard": self._show_leaderboard_modal,
             "submit": self._show_submit_modal,
-            # Model category boxes
-            "lab-apis": lambda: self._show_model_modal("lab-apis", "Lab APIs"),
-            "cloud-apis": lambda: self._show_model_modal("cloud-apis", "Cloud APIs"),
-            "open-hosted": lambda: self._show_model_modal("open-hosted", "Open (Hosted)"),
-            "open-local": lambda: self._show_model_modal("open-local", "Open (Local)"),
         }
         handler = handlers.get(widget.box_id)
         if handler:
             handler()
 
-    def _show_model_modal(self, category: str, title: str) -> None:
-        """Push the SetModelModal filtered to a specific provider category."""
-        initial_provider = self._current_config.provider if self._current_config else None
-        initial_api_key = self._current_config.api_key if self._current_config else ""
-        initial_model = self._current_config.model if self._current_config else ""
-
+    def _show_model_modal(self, category: str) -> None:
+        """Push the SetModelModal filtered for the given category."""
+        self._load_models_from_env()
         self.app.push_screen(
             SetModelModal(
-                initial_provider=initial_provider,
-                initial_api_key=initial_api_key,
-                initial_model=initial_model,
                 category=category,
-                title=f"{title} - Model Configuration",
+                initial_models=self._configured_models,
+                env_manager=self._env_config_manager,
             ),
             callback=self._on_model_config_saved,
         )
 
-    def _on_model_config_saved(self, config: ModelConfig | None) -> None:
-        """Handle the result from SetModelModal."""
-        if config is not None:
-            self._current_config = config
+    def _on_model_config_saved(self, configs: list[ModelConfig] | None) -> None:
+        """Handle the result from SetModelModal.
+
+        Models are persisted immediately on Add/Delete in the modal.
+        - If configs is None: user cancelled, .env already rolled back
+        - If configs is not None: user saved, .env already up to date
+        """
+        if configs is None:
+            # User cancelled - .env already rolled back by modal, refresh in-memory
+            self._load_models_from_env()
+            return
+
+        # User saved - .env already up to date, just update in-memory
+        self._configured_models = configs
+
+        model_count = len(configs)
+        if model_count == 1:
             self.notify(
-                f"Provider: {config.provider}\nModel: {config.model}",
-                title="Configuration Saved",
+                f"Provider: {configs[0].provider}\nModel: {configs[0].model}",
+                title="Model Configured",
+            )
+        elif model_count > 1:
+            model_names = ", ".join(c.model for c in configs[:3])
+            if model_count > 3:
+                model_names += f" (+{model_count - 3} more)"
+            self.notify(
+                f"{model_count} models configured:\n{model_names}",
+                title="Models Configured",
             )
 
     def _show_evals_modal(self) -> None:
         """Push the TabbedEvalsModal for running evals and viewing progress."""
         self.app.push_screen(
             TabbedEvalsModal(
-                model_config=self._current_config,
                 job_manager=self._job_manager,
+                settings_manager=self._settings_manager,
+                model_configs=self._configured_models,
             ),
             callback=self._on_evals_completed,
         )
 
     def _on_evals_completed(self, job: Job | None) -> None:
         """Handle the result from TabbedEvalsModal."""
-        if job is not None:
-            # Notify user about the new job
-            self.notify(
-                f"Job {job.display_name} created with {len(job.benchmarks)} benchmark(s)",
-                title="Evaluation Started",
-            )
+        if not job or self._job_manager is None:
+            return
 
-            # Mock running the job (in real app, this would run async)
-            self._simulate_job_completion(job)
+        model_count = len(job.evals)
+        benchmark_count = len(next(iter(job.evals.values()), []))
+        message = (
+            f"Job {job.id}: {benchmark_count} benchmark(s) × {model_count} model(s)"
+        )
+        self.notify(message, title="Evaluation Started")
+        self._run_job_evaluation(job)
 
-    def _simulate_job_completion(self, job: Job) -> None:
-        """Simulate running a job and completing it with mock results.
-
-        In a real application, this would be async and actually run
-        the benchmarks against the model.
-        """
+    @work(exclusive=False, thread=True)
+    def _run_job_evaluation(self, job: Job) -> None:
+        """Run evaluation in background thread via subprocess."""
         if self._job_manager is None:
             return
 
-        # Mark as running
-        self._job_manager.mark_job_running(job.id)
+        result = self.app._eval_runner.run_job(job)
+        self.app.call_from_thread(self._on_job_evaluation_complete, job, result)
 
-        # Generate mock results
-        mock_results = {b: 0.75 + (hash(b) % 20) / 100 for b in job.benchmarks}
+    def _on_job_evaluation_complete(self, job: Job, result: EvalResult) -> None:
+        """Handle evaluation completion (called on main thread)."""
+        if result.cancelled:
+            self.notify(
+                f"Job {job.id} was cancelled",
+                title="Evaluation Cancelled",
+                severity="warning",
+            )
+            return
 
-        # Mark as completed (with a slight delay for effect)
-        def complete_job() -> None:
-            if self._job_manager:
-                self._job_manager.mark_job_completed(job.id, mock_results)
-                self.notify(
-                    f"Job {job.display_name} completed!",
-                    title="Evaluation Complete",
-                )
-                # Store results for submission
-                self._eval_results = mock_results
+        if result.success:
+            self.notify(f"Job {job.id} completed!", title="Evaluation Complete")
+            return
 
-        # Use a timer to simulate async completion
-        self.set_timer(2.0, complete_job)
+        error_msg = result.error or "Unknown error"
+        self.notify(
+            f"Job {job.id} failed: {error_msg}",
+            title="Evaluation Failed",
+            severity="error",
+        )
 
     def _show_leaderboard_modal(self) -> None:
         """Push the LeaderboardModal and handle the result via callback."""
@@ -269,13 +369,14 @@ class MainScreen(Screen):
 
     def _on_leaderboard_closed(self, _result: None) -> None:
         """Handle the LeaderboardModal close (view-only, no return value)."""
-        pass
 
     def _show_submit_modal(self) -> None:
         """Push the SubmitModal and handle the result via callback."""
+        # Pass first configured model for now (submit modal shows single model info)
+        first_config = self._configured_models[0] if self._configured_models else None
         self.app.push_screen(
             SubmitModal(
-                model_config=self._current_config,
+                model_config=first_config,
                 has_results=self._eval_results is not None,
             ),
             callback=self._on_submit_completed,
@@ -302,20 +403,20 @@ class MainScreen(Screen):
         self._show_submit_modal()
 
     def action_goto_lab_apis(self) -> None:
-        """Open Lab APIs model modal (quick key 4)."""
-        self._show_model_modal("lab-apis", "Lab APIs")
+        """Open Lab APIs modal (quick key 4)."""
+        self._show_model_modal("lab-apis")
 
     def action_goto_cloud_apis(self) -> None:
-        """Open Cloud APIs model modal (quick key 5)."""
-        self._show_model_modal("cloud-apis", "Cloud APIs")
+        """Open Cloud APIs modal (quick key 5)."""
+        self._show_model_modal("cloud-apis")
 
     def action_goto_open_hosted(self) -> None:
-        """Open Open (Hosted) model modal (quick key 6)."""
-        self._show_model_modal("open-hosted", "Open (Hosted)")
+        """Open Open (Hosted) modal (quick key 6)."""
+        self._show_model_modal("open-hosted")
 
     def action_goto_open_local(self) -> None:
-        """Open Open (Local) model modal (quick key 7)."""
-        self._show_model_modal("open-local", "Open (Local)")
+        """Open Open (Local) modal (quick key 7)."""
+        self._show_model_modal("open-local")
 
     def action_help(self) -> None:
         """Show help."""
@@ -330,8 +431,39 @@ class MainScreen(Screen):
         )
 
     def action_quick_launch(self) -> None:
-        """Handle quick launch for unassigned keys (5-9, a-f)."""
+        """Handle quick launch for unassigned keys."""
         self.notify("No action assigned to this key.", title="Quick Launch")
+
+    def action_launch_agent(self, shortcut: str) -> None:
+        """Launch agent by shortcut key."""
+        agent = AGENTS_BY_SHORTCUT.get(shortcut)
+        if agent is None:
+            return
+        self._launch_agent(agent["id"], agent["name"])
+
+    def _launch_agent(self, agent_id: str, agent_name: str) -> None:
+        """Launch an agent (mock - just show notification)."""
+        self.notify(
+            f"Launching {agent_name}...",
+            title="Agent Launch",
+        )
+
+    def action_env_vars(self) -> None:
+        """Open Environment Variables modal (quick key c)."""
+        if self._env_config_manager is None:
+            self.notify("Environment manager not initialized", severity="error")
+            return
+        self.app.push_screen(
+            EnvVarsModal(env_manager=self._env_config_manager),
+            callback=self._on_env_vars_updated,
+        )
+
+    def _on_env_vars_updated(self, changes_made: bool) -> None:
+        """Handle the result from EnvVarsModal."""
+        if changes_made:
+            # Reload models from .env since API keys may have changed
+            self._load_models_from_env()
+            self.notify("Environment variables updated", title="Saved")
 
     def action_resume(self) -> None:
         """Resume a previous session (placeholder)."""

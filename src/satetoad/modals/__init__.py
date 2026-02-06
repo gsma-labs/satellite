@@ -9,19 +9,19 @@ All modals follow Toad's ModalScreen pattern:
 - Dismiss with dismiss(value) to return data to caller
 """
 
-from .set_model_modal import ModelConfig, SetModelModal
-from .run_evals_modal import RunEvalsModal
-from .leaderboard_modal import LeaderboardModal
-from .submit_modal import SubmitData, SubmitModal
-from .evals_modal import EvalsModal, EvalsOptionItem
-from .job_list_modal import JobListModal, JobListItem
-from .job_detail_modal import JobDetailModal
-from .tabbed_evals_modal import TabbedEvalsModal
+from satetoad.services.config import ModelConfig
+from .scripts.set_model_modal import SetModelModal
+from .scripts.leaderboard_modal import LeaderboardModal
+from .scripts.submit_modal import SubmitData, SubmitModal
+from .scripts.evals_modal import EvalsModal, EvalsOptionItem
+from .scripts.job_list_modal import JobListModal, JobListItem
+from .scripts.job_detail_modal import JobDetailModal
+from .scripts.tabbed_evals_modal import TabbedEvalsModal
+from .scripts.env_vars_modal import EnvVarsModal
 
 __all__ = [
     "ModelConfig",
     "SetModelModal",
-    "RunEvalsModal",
     "LeaderboardModal",
     "SubmitData",
     "SubmitModal",
@@ -31,4 +31,5 @@ __all__ = [
     "JobListItem",
     "JobDetailModal",
     "TabbedEvalsModal",
+    "EnvVarsModal",
 ]

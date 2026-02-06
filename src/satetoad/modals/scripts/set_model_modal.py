@@ -5,10 +5,14 @@ This modal demonstrates the ModalScreen pattern in Textual:
 - The backdrop is automatically handled by Textual
 - Escape key binding for quick dismissal
 - Callback-based result handling in the parent screen
+
+Supports multi-model configuration:
+- Users can add multiple models before saving
+- Silent replacement for duplicate normalized paths
+- Returns list[ModelConfig] instead of single ModelConfig
 """
 
 import re
-from dataclasses import dataclass
 from typing import ClassVar
 
 from textual import events, on
@@ -19,6 +23,16 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static
 
 from satetoad.examples.eval_data import MODEL_PROVIDERS, PROVIDERS_BY_CATEGORY
+from satetoad.services.config import EnvConfigManager, ModelConfig, normalize_model_path
+from satetoad.widgets.configured_models_list import ConfiguredModelItem, ConfiguredModelsList
+
+# Titles for category-filtered modals
+CATEGORY_TITLES = {
+    "lab-apis": "Lab APIs",
+    "cloud-apis": "Cloud APIs",
+    "open-hosted": "Open (Hosted)",
+    "open-local": "Open (Local)",
+}
 
 
 class EnterOnlySelect(Select):
@@ -29,25 +43,11 @@ class EnterOnlySelect(Select):
     ]
 
 
-@dataclass
-class ModelConfig:
-    """Configuration data returned from the SetModelModal.
-
-    Attributes:
-        provider: The selected provider ID (e.g., "anthropic", "openai")
-        api_key: The API key entered by the user
-        model: The full model name (e.g., "claude-3-5-sonnet")
-    """
-
-    provider: str
-    api_key: str
-    model: str
-
-
-class SetModelModal(ModalScreen[ModelConfig | None]):
+class SetModelModal(ModalScreen[list[ModelConfig] | None]):
     """Modal dialog for configuring API key and model provider.
 
-    Returns ModelConfig on save, None on cancel/escape.
+    Supports multi-model configuration - users can add multiple models
+    before saving. Returns list[ModelConfig] on save, None on cancel/escape.
 
     Keyboard Navigation:
     - Up/k: Move to previous field
@@ -57,7 +57,7 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
     - Escape: Cancel
     """
 
-    CSS_PATH = "set_model_modal.tcss"
+    CSS_PATH = "../styles/set_model_modal.tcss"
 
     # Fallback CSS for backdrop - ensures overlay effect even if TCSS fails to load
     DEFAULT_CSS = """
@@ -88,41 +88,53 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
 
     def __init__(
         self,
+        category: str | None = None,
         initial_provider: str | None = None,
         initial_api_key: str = "",
         initial_model: str = "",
-        category: str | None = None,
-        title: str = "Set Model Configuration",
+        title: str = "Model Configuration",
+        initial_models: list[ModelConfig] | None = None,
+        env_manager: EnvConfigManager | None = None,
     ) -> None:
         """Initialize the modal with optional pre-filled values.
 
         Args:
+            category: Provider category to filter by (lab-apis, cloud-apis, etc.)
             initial_provider: Pre-selected provider ID
             initial_api_key: Pre-filled API key
             initial_model: Pre-filled model name
-            category: Provider category to filter by (e.g., "lab-apis", "cloud-apis")
-            title: Custom title for the modal
+            title: Custom title for the modal (overridden if category is set)
+            initial_models: Pre-configured models to show in the list
+            env_manager: Environment config manager for API key detection
         """
         super().__init__()
-        self._category = category
-        self._title = title
-        self._providers = self._get_providers_for_category()
-        self._initial_provider = initial_provider or (self._providers[0]["id"] if self._providers else "")
+        # Filter providers by category, fallback to all
+        self._providers = PROVIDERS_BY_CATEGORY.get(category, MODEL_PROVIDERS) if category else MODEL_PROVIDERS
+        # Title from category or explicit title
+        self._title = CATEGORY_TITLES.get(category, title) if category else title
+        self._initial_provider = initial_provider or (
+            self._providers[0]["id"] if self._providers else ""
+        )
         self._initial_api_key = initial_api_key
         self._initial_model = initial_model
         self._current_prefix = ""
-
-    def _get_providers_for_category(self) -> list[dict]:
-        """Get providers filtered by category if set."""
-        if self._category:
-            return PROVIDERS_BY_CATEGORY.get(self._category, [])
-        return MODEL_PROVIDERS
+        self._initial_models = initial_models or []
+        self._env_manager = env_manager
+        # Snapshot current .env state for rollback on cancel
+        self._snapshot = env_manager.load_models() if env_manager else []
 
     def compose(self) -> ComposeResult:
         """Compose the modal layout."""
         # Use VerticalGroup with id="container" (Toad pattern for proper modal overlay)
         with VerticalGroup(id="container"):
             yield Static(self._title, classes="modal-title")
+
+            # Configured models list (shows added models)
+            models_for_list = [
+                (config, normalize_model_path(config.model))
+                for config in self._initial_models
+            ]
+            yield ConfiguredModelsList(models_for_list, id="models-list")
 
             # Provider selection row
             with Horizontal(classes="form-row"):
@@ -158,7 +170,8 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
             # Action buttons (HorizontalGroup with id="buttons" for Toad pattern)
             with HorizontalGroup(id="buttons"):
                 yield Button("Cancel", id="cancel-btn")
-                yield Button("Go", id="save-btn")
+                yield Button("Add", id="add-btn")
+                yield Button("Save All", id="save-btn", variant="primary")
 
     def on_mount(self) -> None:
         """Initialize the model prefix hint and credential field when mounted."""
@@ -174,68 +187,76 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
 
     def _update_prefix_hint(self) -> None:
         """Update the model prefix hint based on selected provider."""
-        try:
-            select = self.query_one("#provider-select", Select)
-            provider_id = str(select.value) if select.value else ""
-            provider = self._get_provider_data(provider_id)
+        select = self.query_one("#provider-select", Select)
+        hint_widget = self.query_one("#prefix-hint", Static)
 
-            hint_widget = self.query_one("#prefix-hint", Static)
+        if not select.value:
+            hint_widget.update("[dim]Enter full model name[/]")
+            return
 
-            if provider:
-                prefix = provider.get("model_prefix", "")
-                env_var = provider.get("env_var", "")
-                self._current_prefix = prefix
+        provider = self._get_provider_data(select.value)
 
-                hints = []
-                if prefix:
-                    hints.append(f"Model prefix: {prefix}")
-                if env_var:
-                    hints.append(f"Env: {env_var}")
+        if not provider:
+            hint_widget.update("[dim]Enter full model name[/]")
+            return
 
-                if hints:
-                    hint_widget.update(f"[dim]{' | '.join(hints)}[/]")
-                else:
-                    hint_widget.update("[dim]Enter full model name[/]")
-        except Exception:
-            pass
+        prefix = provider.get("model_prefix", "")
+        self._current_prefix = prefix
+
+        hints = []
+        if prefix:
+            hints.append(f"Prefix: {prefix}")
+
+        # Show API key status for providers that need API keys
+        env_var = provider.get("env_var", "")
+        if provider.get("credential_type", "api_key") == "api_key" and env_var:
+            key_exists = (
+                env_var in self._env_manager.get_all_vars() if self._env_manager else False
+            )
+            if key_exists:
+                hints.append(f"[green]✓ {env_var}[/green]")
+            else:
+                hints.append(f"[yellow]⚠ {env_var} not set (press 'c')[/yellow]")
+
+        hint_text = " | ".join(hints) if hints else "Enter full model name"
+        hint_widget.update(hint_text)
 
     def _update_credential_field_for_current_provider(self) -> None:
         """Update credential field based on currently selected provider."""
-        try:
-            select = self.query_one("#provider-select", Select)
-            provider_id = str(select.value) if select.value else ""
-            provider = self._get_provider_data(provider_id)
-            if provider:
-                self._update_credential_field(provider)
-        except Exception:
-            pass
+        select = self.query_one("#provider-select", Select)
+        if not select.value:
+            return
+        provider = self._get_provider_data(select.value)
+        if provider:
+            self._update_credential_field(provider)
 
     def _update_credential_field(self, provider: dict) -> None:
-        """Update credential field based on provider configuration."""
-        cred_row = self.query_one("#credential-row", Horizontal)
-        cred_label = self.query_one("#credential-label", Label)
-        cred_input = self.query_one("#credential-input", Input)
+        """Update credential field based on provider configuration.
 
-        # Default to api_key for backward compatibility (Lab APIs, etc.)
+        API keys are hidden - users manage them via Configuration (press 'c').
+        Only base_url types show the credential field.
+        """
+        cred_row = self.query_one("#credential-row", Horizontal)
         cred_type = provider.get("credential_type", "api_key")
 
-        if cred_type == "none":
+        # Hide for api_key and none types - API keys managed via Configuration (press 'c')
+        if cred_type != "base_url":
             cred_row.add_class("hidden")
             return
 
+        # Show for base_url type (local providers like Ollama, vLLM)
         cred_row.remove_class("hidden")
 
-        # Update label and placeholder
-        label = provider.get("credential_label", "API Key:")
-        cred_label.update(label)
-        cred_input.placeholder = provider.get("credential_placeholder", "Enter value")
+        cred_label = self.query_one("#credential-label", Label)
+        cred_input = self.query_one("#credential-input", Input)
 
-        # Password field only for API keys
-        cred_input.password = (cred_type == "api_key")
+        cred_label.update(provider.get("credential_label", "Base URL:"))
+        cred_input.placeholder = provider.get("credential_placeholder", "Enter URL")
+        cred_input.password = False
 
-        # Set default value for base_url types (if field is empty)
+        # Set default value if field is empty
         default_val = provider.get("credential_default", "")
-        if cred_type == "base_url" and not cred_input.value and default_val:
+        if not cred_input.value and default_val:
             cred_input.value = default_val
 
     @on(Select.Changed, "#provider-select")
@@ -246,104 +267,146 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
         self._update_credential_field_for_current_provider()
 
         # Update model input with new prefix if it was using the old prefix
-        try:
-            model_input = self.query_one("#model-input", Input)
-            current_value = model_input.value
+        model_input = self.query_one("#model-input", Input)
+        current_value = model_input.value
 
-            # If model input is empty or equals old prefix, set to new prefix
-            if not current_value or current_value == old_prefix:
-                model_input.value = self._current_prefix
-                return
+        # If model input is empty or equals old prefix, set to new prefix
+        if not current_value or current_value == old_prefix:
+            model_input.value = self._current_prefix
+            return
 
-            # Replace old prefix with new prefix if value starts with it
-            if old_prefix and current_value.startswith(old_prefix):
-                model_input.value = self._current_prefix + current_value[len(old_prefix) :]
-        except Exception:
-            pass
+        # Replace old prefix with new prefix if value starts with it
+        if old_prefix and current_value.startswith(old_prefix):
+            model_input.value = self._current_prefix + current_value[len(old_prefix):]
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
         if event.button.id == "cancel-btn":
+            self._restore_snapshot()
             self.dismiss(None)
             return
+        if event.button.id == "add-btn":
+            self._add_model_to_list()
+            return
         if event.button.id == "save-btn":
-            self._save_config()
+            self._save_all_models()
 
     def action_cancel(self) -> None:
         """Cancel and close the modal (triggered by Escape key)."""
+        self._restore_snapshot()
         self.dismiss(None)
 
-    def _save_config(self) -> None:
-        """Validate inputs and save the configuration."""
-        try:
-            provider_id = str(self.query_one("#provider-select", Select).value)
-            credential = self.query_one("#credential-input", Input).value.strip()
-            model = self.query_one("#model-input", Input).value.strip()
+    def _restore_snapshot(self) -> None:
+        """Restore .env to state when modal opened (rollback)."""
+        if self._env_manager is None:
+            return
+        self._env_manager.save_models(self._snapshot)
 
-            # Get provider configuration for credential type
-            provider_data = self._get_provider_data(provider_id)
-            cred_type = provider_data.get("credential_type", "api_key") if provider_data else "api_key"
-            cred_required = provider_data.get("credential_required", True) if provider_data else True
+    def _validate_and_create_config(self) -> ModelConfig | None:
+        """Validate inputs and create a ModelConfig.
 
-            # Validate credential based on type
-            if cred_type == "none":
-                credential = ""
-            elif cred_required and not credential:
-                label = provider_data.get("credential_label", "Credential") if provider_data else "Credential"
-                self.notify(f"{label.rstrip(':')} is required", severity="error")
-                self.query_one("#credential-input", Input).focus()
-                return
-            elif cred_type == "api_key" and credential:
-                if not self._validate_api_key(credential):
-                    return
-            elif cred_type == "base_url" and credential:
-                if not self._validate_base_url(credential):
-                    return
+        API keys are NOT collected here - they are managed via Configuration (press 'c').
+        Only base URLs are collected for local providers.
 
-            # Validate model name
-            if not model:
-                self.notify("Model name is required", severity="error")
-                self.query_one("#model-input", Input).focus()
-                return
-
-            if not self._validate_model_name(model):
-                return
-
-            # Create config and dismiss modal
-            config = ModelConfig(
-                provider=provider_id,
-                api_key=credential,
-                model=model,
-            )
-            self.dismiss(config)
-
-        except (ValueError, TypeError) as e:
-            self.notify(f"Configuration error: {e}", severity="error")
-
-    def _validate_api_key(self, api_key: str) -> bool:
-        """Validate API key format for security.
-
-        Returns True if valid, False otherwise (with notification).
+        Returns the config if valid, None otherwise.
         """
-        # Length check
-        if len(api_key) < 10:
-            self.notify("API key is too short", severity="error")
-            self.query_one("#credential-input", Input).focus()
-            return False
+        provider_id = self.query_one("#provider-select", Select).value
+        credential = self.query_one("#credential-input", Input).value.strip()
+        model = self.query_one("#model-input", Input).value.strip()
 
-        if len(api_key) > 500:
-            self.notify("API key is too long", severity="error")
-            self.query_one("#credential-input", Input).focus()
-            return False
+        if not provider_id:
+            self.notify("Please select a provider", severity="error")
+            self.query_one("#provider-select", Select).focus()
+            return None
 
-        # Check for injection characters
-        invalid_chars = ["\n", "\r", "\0", ";", "&", "|", "$", "`"]
-        if any(c in api_key for c in invalid_chars):
-            self.notify("API key contains invalid characters", severity="error")
-            self.query_one("#credential-input", Input).focus()
-            return False
+        provider_data = self._get_provider_data(provider_id)
+        if not provider_data:
+            self.notify("Invalid provider selected", severity="error")
+            self.query_one("#provider-select", Select).focus()
+            return None
 
-        return True
+        cred_type = provider_data.get("credential_type", "api_key")
+
+        # Handle credential based on type
+        if cred_type != "base_url":
+            # API keys managed via Configuration (press 'c'), not here
+            credential = ""
+        elif not self._validate_base_url_credential(provider_data, credential):
+            return None
+
+        # Validate model name
+        if not model:
+            self.notify("Model name is required", severity="error")
+            self.query_one("#model-input", Input).focus()
+            return None
+
+        if not self._validate_model_name(model):
+            return None
+
+        return ModelConfig(
+            provider=provider_id,
+            api_key=credential,  # Empty for api_key types, URL for base_url
+            model=model,
+        )
+
+    def _add_model_to_list(self) -> None:
+        """Validate current input and add to the models list."""
+        config = self._validate_and_create_config()
+        if config is None:
+            return
+
+        # Add to the list (silently replaces if same normalized path)
+        models_list = self.query_one("#models-list", ConfiguredModelsList)
+        normalized = normalize_model_path(config.model)
+        models_list.add_model(config, normalized)
+
+        # Persist immediately to .env
+        self._persist_current_models()
+
+        # Clear form for next entry
+        self._clear_form()
+
+        # Show confirmation
+        self.notify(f"Added {config.model}", severity="information")
+
+    def _persist_current_models(self) -> None:
+        """Write current model list to .env immediately."""
+        if self._env_manager is None:
+            return
+        models_list = self.query_one("#models-list", ConfiguredModelsList)
+        models = models_list.get_models()
+        self._env_manager.save_models(models)
+
+    @on(ConfiguredModelItem.DeleteRequested)
+    def on_model_delete_requested(
+        self, event: ConfiguredModelItem.DeleteRequested
+    ) -> None:
+        """Handle model deletion - persist immediately after list removes it."""
+        # List already removed the model, just persist the change
+        self._persist_current_models()
+        self.notify("Model removed", severity="information")
+
+    def _save_all_models(self) -> None:
+        """Save all configured models and dismiss the modal."""
+        models_list = self.query_one("#models-list", ConfiguredModelsList)
+        models = models_list.get_models()
+
+        if not models:
+            self.notify("Add at least one model before saving", severity="warning")
+            return
+
+        self.dismiss(models)
+
+    def _clear_form(self) -> None:
+        """Clear the form fields for the next model entry."""
+        credential_input = self.query_one("#credential-input", Input)
+        model_input = self.query_one("#model-input", Input)
+
+        credential_input.value = ""
+        model_input.value = self._current_prefix
+
+        # Focus provider select for next entry
+        self.query_one("#provider-select").focus()
 
     def _validate_base_url(self, url: str) -> bool:
         """Validate base URL format.
@@ -361,6 +424,32 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
         if len(url) > 500:
             self.notify("URL is too long", severity="error")
             self.query_one("#credential-input", Input).focus()
+            return False
+
+        return True
+
+    def _validate_base_url_credential(
+        self, provider_data: dict | None, credential: str
+    ) -> bool:
+        """Validate base URL credential for local providers.
+
+        Returns True if valid, False otherwise (with notification).
+        """
+        cred_required = (
+            provider_data.get("credential_required", True) if provider_data else True
+        )
+
+        if cred_required and not credential:
+            label = (
+                provider_data.get("credential_label", "Base URL")
+                if provider_data
+                else "Base URL"
+            )
+            self.notify(f"{label.rstrip(':')} is required", severity="error")
+            self.query_one("#credential-input", Input).focus()
+            return False
+
+        if credential and not self._validate_base_url(credential):
             return False
 
         return True
@@ -416,8 +505,8 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
             # Move to next field
             self.query_one(self._FOCUSABLE_FIELDS[current + 1]).focus()
         else:
-            # At last field, focus Save button
-            self.query_one("#save-btn").focus()
+            # At last field, focus Add button
+            self.query_one("#add-btn").focus()
 
     def action_focus_previous_field(self) -> None:
         """Move focus to the previous form field (Up/k key)."""
@@ -470,10 +559,15 @@ class SetModelModal(ModalScreen[ModelConfig | None]):
     def action_activate_field(self) -> None:
         """Activate current field or submit if on button (Enter key)."""
         if self._is_widget_focused("#save-btn"):
-            self._save_config()
+            self._save_all_models()
+            return
+
+        if self._is_widget_focused("#add-btn"):
+            self._add_model_to_list()
             return
 
         if self._is_widget_focused("#cancel-btn"):
+            self._restore_snapshot()
             self.dismiss(None)
             return
 

@@ -1,0 +1,169 @@
+/* EnvVarsModal - Clean toad-style env vars management modal
+ *
+ * Design principles:
+ * - Transparent/subtle backgrounds on form elements
+ * - Tall borders that highlight on focus
+ * - Minimal visual noise
+ * - Dracula color scheme
+ */
+
+EnvVarsModal {
+    align: center middle;
+    background: black 50%;
+}
+
+EnvVarsModal #container {
+    margin: 1 2;
+    padding: 1 1;
+    max-width: 60;
+    width: auto;
+    height: auto;
+    background: #1E1F29;
+    border: thick #BD93F9 20%;
+}
+
+EnvVarsModal .modal-title {
+    text-align: center;
+    text-style: bold;
+    padding: 0;
+    margin-bottom: 1;
+    color: #F8F8F2;
+}
+
+EnvVarsModal .section-title {
+    text-style: bold;
+    padding: 0;
+    margin-top: 1;
+    margin-bottom: 1;
+    color: #BD93F9;
+    border-top: solid #BD93F9 10%;
+    padding-top: 1;
+}
+
+/* Variables list */
+EnvVarsModal #vars-list {
+    height: auto;
+    max-height: 12;
+    margin-bottom: 1;
+    border: tall black 20%;
+    background: transparent;
+    padding: 0 1;
+}
+
+EnvVarsModal #vars-list .empty-message {
+    color: #faf9f5 40%;
+    text-style: italic;
+    padding: 0 1;
+}
+
+/* Env var item styling */
+EnvVarsModal EnvVarItem {
+    height: auto;
+    padding: 0 1;
+    background: transparent;
+}
+
+EnvVarsModal EnvVarItem:hover {
+    background: #BD93F9 10%;
+}
+
+EnvVarsModal EnvVarItem .var-name {
+    width: 1fr;
+    color: #50FA7B;
+    text-style: bold;
+}
+
+EnvVarsModal EnvVarItem .var-value {
+    width: 1fr;
+    color: #faf9f5 60%;
+}
+
+EnvVarsModal EnvVarItem .delete-btn {
+    min-width: 3;
+    max-width: 3;
+    background: transparent;
+    border: none;
+    color: #FF5555;
+}
+
+EnvVarsModal EnvVarItem .delete-btn:hover {
+    background: #FF5555 20%;
+}
+
+/* Form field labels */
+EnvVarsModal .form-label {
+    width: 8;
+    padding: 0 1 0 0;
+    color: #faf9f5 60%;
+}
+
+/* Form row layout */
+EnvVarsModal .form-row {
+    height: auto;
+    margin: 0 0 1 0;
+    align: left middle;
+}
+
+/* Input styling */
+EnvVarsModal #var-name-input,
+EnvVarsModal #var-value-input {
+    width: 1fr;
+    background: transparent;
+    border: tall black 20%;
+}
+
+EnvVarsModal #var-name-input:focus,
+EnvVarsModal #var-value-input:focus {
+    border: tall #BD93F9;
+}
+
+EnvVarsModal #var-name-input:disabled {
+    color: #faf9f5 40%;
+}
+
+/* Button container */
+EnvVarsModal #buttons {
+    margin-top: 1;
+    padding-top: 0;
+    align: right top;
+}
+
+/* Button styling */
+EnvVarsModal #buttons Button {
+    margin-left: 1;
+    min-width: 8;
+    background: transparent;
+    border: tall black 20%;
+}
+
+EnvVarsModal #buttons Button:hover {
+    background: #BD93F9 5%;
+}
+
+EnvVarsModal #buttons Button:focus {
+    border: tall #BD93F9;
+}
+
+/* Add/Update button - primary action */
+EnvVarsModal #buttons #add-btn {
+    background: #50FA7B 20%;
+    border: tall #50FA7B 40%;
+    color: #F8F8F2;
+}
+
+EnvVarsModal #buttons #add-btn:hover {
+    background: #50FA7B 35%;
+}
+
+EnvVarsModal #buttons #add-btn:focus {
+    border: tall #50FA7B;
+}
+
+/* Close button - subtle styling */
+EnvVarsModal #buttons #close-btn {
+    color: #faf9f5 60%;
+}
+
+EnvVarsModal #buttons #close-btn:focus {
+    color: #F8F8F2;
+}

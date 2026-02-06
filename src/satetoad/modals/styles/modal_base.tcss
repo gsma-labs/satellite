@@ -13,13 +13,12 @@
  * ============================================================ */
 
 /* Common modal alignment - center with semi-transparent backdrop */
-RunEvalsModal, LeaderboardModal, SubmitModal, TabbedEvalsModal {
+LeaderboardModal, SubmitModal, TabbedEvalsModal {
     align: center middle;
     background: black 50%;
 }
 
 /* Common container styling */
-RunEvalsModal #container,
 LeaderboardModal #container,
 SubmitModal #container,
 TabbedEvalsModal #container {
@@ -31,7 +30,6 @@ TabbedEvalsModal #container {
 }
 
 /* Auto-width containers */
-RunEvalsModal #container,
 SubmitModal #container {
     max-width: 80;
     width: auto;
@@ -53,7 +51,6 @@ LeaderboardModal #container {
 }
 
 /* Common title styling */
-RunEvalsModal .modal-title,
 LeaderboardModal .modal-title,
 SubmitModal .modal-title,
 TabbedEvalsModal .modal-title {
@@ -66,7 +63,6 @@ TabbedEvalsModal .modal-title {
 }
 
 /* Common button row styling */
-RunEvalsModal #buttons,
 LeaderboardModal #buttons,
 SubmitModal #buttons,
 TabbedEvalsModal .button-row {
@@ -76,10 +72,8 @@ TabbedEvalsModal .button-row {
 }
 
 /* Base button styling - reset tint effects */
-RunEvalsModal #buttons Button,
 LeaderboardModal #buttons Button,
 SubmitModal #buttons Button,
-RunEvalsModal .action-row Button,
 TabbedEvalsModal .button-row Button {
     margin-left: 1;
     min-width: 12;
@@ -89,18 +83,12 @@ TabbedEvalsModal .button-row Button {
 }
 
 /* Button state resets - prevent Textual's default hover/focus/active effects */
-RunEvalsModal #buttons Button:hover,
-RunEvalsModal #buttons Button:focus,
-RunEvalsModal #buttons Button.-active,
 LeaderboardModal #buttons Button:hover,
 LeaderboardModal #buttons Button:focus,
 LeaderboardModal #buttons Button.-active,
 SubmitModal #buttons Button:hover,
 SubmitModal #buttons Button:focus,
 SubmitModal #buttons Button.-active,
-RunEvalsModal .action-row Button:hover,
-RunEvalsModal .action-row Button:focus,
-RunEvalsModal .action-row Button.-active,
 TabbedEvalsModal .button-row Button:hover,
 TabbedEvalsModal .button-row Button:focus,
 TabbedEvalsModal .button-row Button.-active {
@@ -110,7 +98,6 @@ TabbedEvalsModal .button-row Button.-active {
 }
 
 /* Shared section label styling */
-RunEvalsModal .section-label,
 LeaderboardModal .section-label,
 TabbedEvalsModal .section-label {
     color: #faf9f5 60%;
@@ -130,38 +117,38 @@ TabbedEvalsModal #empty-message {
  * PRIMARY BUTTON STYLING - Dracula purple accent
  * ============================================================ */
 
-RunEvalsModal #buttons #run-btn,
 LeaderboardModal #buttons #close-btn,
 SubmitModal #buttons #submit-btn,
 TabbedEvalsModal #run-btn,
-TabbedEvalsModal #close-btn {
+TabbedEvalsModal #close-btn,
+TabbedEvalsModal #settings-close-btn {
     background: #BD93F9 30%;
     border: tall #BD93F9 60%;
     color: #F8F8F2;
 }
 
-RunEvalsModal #buttons #run-btn:hover,
 LeaderboardModal #buttons #close-btn:hover,
 SubmitModal #buttons #submit-btn:hover,
 TabbedEvalsModal #run-btn:hover,
-TabbedEvalsModal #close-btn:hover {
+TabbedEvalsModal #close-btn:hover,
+TabbedEvalsModal #settings-close-btn:hover {
     background: #BD93F9 50%;
 }
 
-RunEvalsModal #buttons #run-btn:focus,
 LeaderboardModal #buttons #close-btn:focus,
 SubmitModal #buttons #submit-btn:focus,
 TabbedEvalsModal #run-btn:focus,
-TabbedEvalsModal #close-btn:focus {
+TabbedEvalsModal #close-btn:focus,
+TabbedEvalsModal #settings-close-btn:focus {
     background: #BD93F9 40%;
     border: tall #BD93F9;
 }
 
-RunEvalsModal #buttons #run-btn.-active,
 LeaderboardModal #buttons #close-btn.-active,
 SubmitModal #buttons #submit-btn.-active,
 TabbedEvalsModal #run-btn.-active,
-TabbedEvalsModal #close-btn.-active {
+TabbedEvalsModal #close-btn.-active,
+TabbedEvalsModal #settings-close-btn.-active {
     background: #BD93F9 50%;
 }
 
@@ -169,7 +156,6 @@ TabbedEvalsModal #close-btn.-active {
  * CANCEL BUTTON STYLING
  * ============================================================ */
 
-RunEvalsModal #buttons #cancel-btn,
 SubmitModal #buttons #cancel-btn,
 TabbedEvalsModal #cancel-btn {
     color: #faf9f5 60%;
@@ -177,43 +163,23 @@ TabbedEvalsModal #cancel-btn {
     border: tall #282A36 20%;
 }
 
-RunEvalsModal #buttons #cancel-btn:focus,
 SubmitModal #buttons #cancel-btn:focus,
 TabbedEvalsModal #cancel-btn:focus {
     color: #F8F8F2;
     border: tall #BD93F9;
 }
 
-RunEvalsModal #buttons #cancel-btn.-active,
 SubmitModal #buttons #cancel-btn.-active,
 TabbedEvalsModal #cancel-btn.-active {
     background: transparent;
 }
 
 /* ============================================================
- * RunEvalsModal SPECIFIC STYLES
+ * TabbedEvalsModal SECTION LABEL
  * ============================================================ */
 
-RunEvalsModal .model-info,
-TabbedEvalsModal .model-info {
-    width: 1fr;
-    color: #faf9f5 60%;
-    margin-bottom: 0;
-    text-align: center;
-}
-
-RunEvalsModal .section-label,
 TabbedEvalsModal .section-label {
     width: 1fr;
-    margin: 0;
-}
-
-RunEvalsModal #eval-list {
-    width: 1fr;
-    height: auto;
-    max-height: 12;
-    padding: 0 1;
-    border: solid #BD93F9 30%;
     margin: 0;
 }
 
@@ -232,18 +198,6 @@ TabbedEvalsModal #eval-list {
     height: auto;
     border: none;
     padding: 0;
-}
-
-RunEvalsModal .action-row {
-    height: auto;
-    margin: 0;
-    align: left middle;
-}
-
-RunEvalsModal .action-row Button {
-    margin-right: 1;
-    margin-left: 0;
-    min-width: 0;
 }
 
 /* ============================================================
@@ -332,17 +286,117 @@ TabbedEvalsModal .tab-pane.-active {
     height: 1fr;
 }
 
-/* Hide button rows by default */
-TabbedEvalsModal #run-evals-buttons,
-TabbedEvalsModal #view-progress-buttons {
+/* Hide footers by default */
+TabbedEvalsModal #run-evals-footer,
+TabbedEvalsModal #view-progress-buttons,
+TabbedEvalsModal #settings-buttons {
     display: none;
 }
 
-/* Show buttons based on active tab class */
-TabbedEvalsModal.-tab-run-evals #run-evals-buttons {
+/* Show footers based on active tab class */
+TabbedEvalsModal.-tab-run-evals #run-evals-footer {
     display: block;
 }
 
 TabbedEvalsModal.-tab-view-progress #view-progress-buttons {
     display: block;
+}
+
+TabbedEvalsModal.-tab-settings #settings-buttons {
+    display: block;
+}
+
+/* ============================================================
+ * MODELS DROPDOWN - Footer layout
+ * ============================================================ */
+
+/* Footer container: models left, buttons right */
+TabbedEvalsModal #run-evals-footer {
+    width: 1fr;
+    height: auto;
+    align: left bottom;
+}
+
+/* Models dropdown - left side, aligned with buttons */
+TabbedEvalsModal #models-dropdown {
+    width: auto;
+    height: auto;
+    margin-top: 1;
+}
+
+/* Models dropdown trigger - same style as Cancel/Run buttons */
+TabbedEvalsModal #models-dropdown .dropdown-trigger {
+    background: #44475A 30%;
+    border: tall #282A36 20%;
+    color: #F8F8F2;
+}
+
+TabbedEvalsModal #models-dropdown .dropdown-trigger:focus {
+    border: tall #BD93F9;
+    text-style: none;
+}
+
+/* Remove focus outline from dropdown container */
+TabbedEvalsModal #models-dropdown:focus-within {
+    border: none;
+    text-style: none;
+}
+
+/* Buttons container - takes remaining space, aligns content right */
+TabbedEvalsModal #run-evals-footer #run-evals-buttons {
+    width: 1fr;
+    height: auto;
+    align: right middle;
+}
+
+/* ============================================================
+ * SETTINGS TAB - Form styling
+ * ============================================================ */
+
+/* Settings section label - space before options */
+TabbedEvalsModal #settings-pane .section-label {
+    margin-bottom: 1;
+}
+
+/* Settings scroll container */
+TabbedEvalsModal #settings-scroll {
+    width: 1fr;
+    height: 1fr;
+    padding: 0 1;
+    border: none;
+    margin: 0;
+}
+
+/* Settings form row */
+TabbedEvalsModal .settings-row {
+    width: 1fr;
+    height: auto;
+    margin: 0;
+    align: left middle;
+}
+
+/* Settings label */
+TabbedEvalsModal .settings-label {
+    width: 18;
+    color: #faf9f5 80%;
+}
+
+/* Settings input - compact single line */
+TabbedEvalsModal .settings-input {
+    width: 8;
+    height: 1;
+    padding: 0 1;
+    background: transparent;
+    border: none;
+}
+
+TabbedEvalsModal .settings-input:focus {
+    border: none;
+    background: #44475A 30%;
+}
+
+/* Settings hint text */
+TabbedEvalsModal .settings-hint {
+    color: #faf9f5 40%;
+    margin-left: 1;
 }

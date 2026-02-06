@@ -6,13 +6,6 @@ Evaluation interface widgets:
 - eval_box.py: Evaluation action boxes with selection highlighting
 - eval_list.py: To-do style list with arrow key navigation
 
-Trajectory section widgets:
-- trajectory_sections.py: Widgets for displaying evaluation data
-  - PromptSection: Truncated prompt with expand capability
-  - ReasoningSection: Agent reasoning (hidden if encrypted)
-  - AnswerSection: Agent's final answer
-  - ComparisonSection: Side-by-side Target vs LLM comparison
-
 Utility widgets:
 - throbber.py: Custom Visual render, animation
 - flash.py: Timer-based visibility toggle
@@ -23,14 +16,6 @@ from satetoad.widgets.julia_set import JuliaSet
 from satetoad.widgets.grid_select import GridSelect
 from satetoad.widgets.eval_box import EvalBox
 from satetoad.widgets.eval_list import EvalList, EvalListItem
-
-# Trajectory section widgets
-from satetoad.widgets.trajectory_sections import (
-    PromptSection,
-    ReasoningSection,
-    AnswerSection,
-    ComparisonSection,
-)
 
 # Utility widgets
 from satetoad.widgets.throbber import Throbber
@@ -46,6 +31,22 @@ from satetoad.widgets.evals_container import EvalsContainer
 from satetoad.widgets.tab_item import TabItem
 from satetoad.widgets.tab_header import TabHeader
 
+# Model configuration widgets
+from satetoad.widgets.configured_models_list import (
+    ConfiguredModelItem,
+    ConfiguredModelsList,
+)
+
+# Environment variable widgets
+from satetoad.widgets.env_var_item import EnvVarItem
+
+# Agent widgets
+from satetoad.widgets.agent_item import AgentItem, pill
+from satetoad.widgets.agent_list import AgentList
+
+# Dropdown widgets
+from satetoad.widgets.dropdown_button import DropdownButton
+
 __all__ = [
     # Evaluation interface
     "JuliaSet",
@@ -53,11 +54,6 @@ __all__ = [
     "EvalBox",
     "EvalList",
     "EvalListItem",
-    # Trajectory sections
-    "PromptSection",
-    "ReasoningSection",
-    "AnswerSection",
-    "ComparisonSection",
     # Utility
     "Throbber",
     "Flash",
@@ -69,4 +65,15 @@ __all__ = [
     # Tab widgets
     "TabItem",
     "TabHeader",
+    # Model configuration
+    "ConfiguredModelItem",
+    "ConfiguredModelsList",
+    # Environment variable
+    "EnvVarItem",
+    # Agent widgets
+    "AgentItem",
+    "AgentList",
+    "pill",
+    # Dropdown widgets
+    "DropdownButton",
 ]

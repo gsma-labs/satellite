@@ -127,7 +127,9 @@ class JuliaSet(Widget):
         super().__init__(name=name, id=id, classes=classes)
 
     @staticmethod
-    def julia(z_real: float, z_imag: float, c_real: float, c_imag: float, max_iterations: int) -> int:
+    def julia(
+        z_real: float, z_imag: float, c_real: float, c_imag: float, max_iterations: int
+    ) -> int:
         """Calculate iterations for a point in the Julia set.
 
         Unlike Mandelbrot where z=0 and c=pixel:
@@ -146,6 +148,11 @@ class JuliaSet(Widget):
     def on_mount(self) -> None:
         """Refresh after mounting."""
         self.call_after_refresh(self.refresh)
+
+    def on_unmount(self) -> None:
+        """Stop zoom timer when widget is removed."""
+        if self.zoom_timer is not None:
+            self.zoom_timer.stop()
 
     def on_resize(self) -> None:
         """Clear cache when resized."""
@@ -239,7 +246,9 @@ class JuliaSet(Widget):
                 iterations = julia(z_real, z_imag, c_real, c_imag, max_iterations)
                 if iterations < max_iterations:
                     braille_key |= bit
-                    colors.append(JULIA_COLORS[round((iterations / max_iterations) * max_color)])
+                    colors.append(
+                        JULIA_COLORS[round((iterations / max_iterations) * max_color)]
+                    )
 
             if not colors:
                 segments.append(Segment(" ", base_style))
