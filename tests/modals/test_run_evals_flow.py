@@ -30,18 +30,19 @@ class RunEvalsTestApp(App):
         self._model_configs = model_configs
         self._job_manager = job_manager
         self._settings_manager = settings_manager or EvalSettingsManager()
-        self.returned_job: Job | None = None
+        self.started_job: Job | None = None
+
+    def _on_start_job(self, job: Job) -> None:
+        self.started_job = job
 
     def on_mount(self) -> None:
         modal = TabbedEvalsModal(
             job_manager=self._job_manager,
             settings_manager=self._settings_manager,
             model_configs=self._model_configs,
+            on_start_job=self._on_start_job,
         )
-        self.push_screen(modal, callback=self._on_modal_dismiss)
-
-    def _on_modal_dismiss(self, job: Job | None) -> None:
-        self.returned_job = job
+        self.push_screen(modal)
 
 
 class TestRunEvalsFlow:
@@ -80,11 +81,13 @@ class TestRunEvalsFlow:
             await pilot.click(run_btn)
             await pilot.pause()
 
-        # Job should be returned with all benchmarks
-        assert app.returned_job is not None
-        # Job.evals maps model -> benchmarks
-        assert "gpt-4o" in app.returned_job.evals
-        assert set(app.returned_job.evals["gpt-4o"]) == set(BENCHMARKS_BY_ID.keys())
+            # Modal should stay open (switched to Progress tab)
+            assert isinstance(app.screen, TabbedEvalsModal)
+
+        # Job should be started with all benchmarks
+        assert app.started_job is not None
+        assert "gpt-4o" in app.started_job.evals
+        assert set(app.started_job.evals["gpt-4o"]) == set(BENCHMARKS_BY_ID.keys())
 
     async def test_run_button_with_partial_selection(
         self,
@@ -111,8 +114,8 @@ class TestRunEvalsFlow:
             await pilot.pause()
 
         # Job should only have teleqna
-        assert app.returned_job is not None
-        assert app.returned_job.evals["gpt-4o"] == ["teleqna"]
+        assert app.started_job is not None
+        assert app.started_job.evals["gpt-4o"] == ["teleqna"]
 
     async def test_run_without_model_shows_error(
         self,
@@ -136,7 +139,7 @@ class TestRunEvalsFlow:
             assert isinstance(app.screen, TabbedEvalsModal)
 
         # No job should be created
-        assert app.returned_job is None
+        assert app.started_job is None
 
 
 class TestMultiModelEvalFlow:
@@ -171,7 +174,7 @@ class TestMultiModelEvalFlow:
             await pilot.pause()
 
         # Job should have both models
-        assert app.returned_job is not None
-        assert len(app.returned_job.evals) == 2
-        assert "gpt-4o" in app.returned_job.evals
-        assert "claude-3" in app.returned_job.evals
+        assert app.started_job is not None
+        assert len(app.started_job.evals) == 2
+        assert "gpt-4o" in app.started_job.evals
+        assert "claude-3" in app.started_job.evals

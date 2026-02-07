@@ -1,23 +1,24 @@
-"""LeaderboardModal - Modal for viewing evaluation results from HuggingFace.
-
-This modal fetches and displays the GSMA/leaderboard dataset from HuggingFace,
-showing model rankings with TCI and individual benchmark scores.
-"""
+"""LeaderboardModal - Modal for viewing evaluation results from HuggingFace."""
 
 from typing import ClassVar
 
+from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Vertical, Horizontal, Center
+from textual.containers import Center, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static, DataTable, LoadingIndicator
 
-from satetoad.services.evals import BENCHMARKS_BY_ID
+from satetoad.services.evals import BENCHMARKS_BY_ID, JobManager
 from satetoad.services.leaderboard import (
     LeaderboardEntry,
+    collect_local_entries,
     fetch_leaderboard,
+    merge_leaderboard,
 )
+
+LOCAL_ROW_STYLE = "bold #F1FA8C"
 
 
 class LeaderboardModal(ModalScreen[None]):
@@ -29,7 +30,7 @@ class LeaderboardModal(ModalScreen[None]):
     +------------------------------------------------------------------+
     |                      Preview Leaderboard                          |
     +------------------------------------------------------------------+
-    | #  | Model              | Provider | TCI  | QnA | Logs | Math |..|
+    | #  | Model              | Provider | Avg  | QnA | Logs | Math |..|
     |----|--------------------+----------+------+-----+------+------|..|
     | 1  | gpt-4o             | OpenAI   | 78.5 | 82  | 75   | 80   |..|
     | 2  | claude-3-opus      | Anthropic| 76.2 | 80  | 74   | 78   |..|
@@ -53,95 +54,86 @@ class LeaderboardModal(ModalScreen[None]):
         Binding("r", "retry", "Retry", show=False),
     ]
 
-    def __init__(self) -> None:
-        """Initialize the modal."""
+    def __init__(self, job_manager: JobManager | None = None) -> None:
         super().__init__()
-        self._entries: list[LeaderboardEntry] = []
+        self._job_manager = job_manager
         self._error: str | None = None
 
     def compose(self) -> ComposeResult:
-        """Compose the modal layout."""
         with Vertical(id="container"):
             yield Static("Preview Leaderboard", classes="modal-title")
 
-            # Loading state
             with Center(id="loading-container"):
                 yield LoadingIndicator(id="loading")
                 yield Static("Loading leaderboard...", id="loading-text")
 
-            # Error state (hidden by default)
             yield Static("", id="error-text", classes="error-text")
+            yield DataTable(id="results-table", classes="results-table")
 
-            # Results table (hidden during loading)
-            table = DataTable(id="results-table", classes="results-table")
-            yield table
-
-            # Close button
             with Horizontal(id="buttons"):
                 yield Button("Close", id="close-btn", variant="primary")
 
     def on_mount(self) -> None:
-        """Load leaderboard data when modal is mounted."""
+        self.query_one("#container").styles.opacity = 1.0
         self._load_leaderboard()
 
     @work(exclusive=True, thread=True)
     def _load_leaderboard(self) -> None:
-        """Fetch leaderboard data from HuggingFace in background thread."""
         try:
-            entries = fetch_leaderboard()
+            remote = fetch_leaderboard()
+            local = (
+                collect_local_entries(self._job_manager) if self._job_manager else []
+            )
+            entries = merge_leaderboard(remote, local)
             self.app.call_from_thread(self._show_leaderboard, entries)
         except (ConnectionError, TimeoutError, OSError) as e:
             self.app.call_from_thread(self._show_error, str(e))
 
     def _show_leaderboard(self, entries: list[LeaderboardEntry]) -> None:
-        """Display the leaderboard data in the table."""
-        self._entries = entries
         self._error = None
 
-        # Hide loading, show table
         self.query_one("#loading-container").display = False
         self.query_one("#error-text").display = False
         table = self.query_one("#results-table", DataTable)
         table.display = True
 
-        # Set up fixed columns
         table.clear(columns=True)
         table.add_column("#", key="rank", width=4)
         table.add_column("Model", key="model", width=22)
         table.add_column("Provider", key="provider", width=12)
-        table.add_column("TCI", key="tci", width=7)
+        table.add_column("Avg", key="avg_score", width=7)
 
-        # Add dynamic eval columns from registry
         for benchmark in BENCHMARKS_BY_ID.values():
             table.add_column(benchmark.short_name, key=benchmark.id, width=7)
 
-        # Add rows with dynamic scores
         for rank, entry in enumerate(entries, start=1):
-            row_data = [
-                str(rank),
-                entry.model,
-                entry.provider,
-                self._format_score(entry.tci),
-            ]
-            for benchmark in BENCHMARKS_BY_ID.values():
-                row_data.append(self._format_score(entry.scores.get(benchmark.id)))
-            table.add_row(*row_data)
+            cells = self._build_row_cells(rank, entry)
+            if entry.is_local:
+                cells = [Text(c, style=LOCAL_ROW_STYLE) for c in cells]
+            table.add_row(*cells)
 
-        # Enable cursor navigation
         table.cursor_type = "row"
         table.zebra_stripes = True
 
+    def _build_row_cells(self, rank: int, entry: LeaderboardEntry) -> list[str]:
+        cells = [
+            str(rank),
+            entry.model,
+            entry.provider,
+            self._format_score(entry.avg_score),
+        ]
+        for benchmark in BENCHMARKS_BY_ID.values():
+            cells.append(self._format_score(entry.scores.get(benchmark.id)))
+        return cells
+
     def _format_score(self, score: float | None) -> str:
-        """Format a score for display."""
         if score is None:
             return "--"
         return f"{score:.1f}"
 
     def _show_error(self, message: str) -> None:
-        """Display an error message."""
         self._error = message
 
-        # Hide loading, show error
         self.query_one("#loading-container").display = False
         self.query_one("#results-table").display = False
 
@@ -150,18 +142,15 @@ class LeaderboardModal(ModalScreen[None]):
         error_widget.display = True
 
     def action_retry(self) -> None:
-        """Retry loading the leaderboard."""
-        if self._error:
-            # Show loading again
-            self.query_one("#loading-container").display = True
-            self.query_one("#error-text").display = False
-            self._load_leaderboard()
+        if not self._error:
+            return
+        self.query_one("#loading-container").display = True
+        self.query_one("#error-text").display = False
+        self._load_leaderboard()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
         if event.button.id == "close-btn":
             self.dismiss(None)
 
     def action_close(self) -> None:
-        """Close the modal (triggered by Escape key)."""
         self.dismiss(None)

@@ -8,6 +8,7 @@ Supports multi-model evaluation:
 - Creates one Job per model when running
 """
 
+from collections.abc import Callable
 from typing import ClassVar
 
 from textual import events, on
@@ -27,6 +28,7 @@ from satetoad.services.evals import BENCHMARKS_BY_ID, Job, JobManager
 from satetoad.widgets.dropdown_button import DropdownButton
 from satetoad.widgets.eval_list import EvalList, EvalListItem
 from satetoad.widgets.tab_header import TabHeader
+from satetoad.widgets.tab_item import TabItem
 
 
 class RunEvalsContent(Vertical):
@@ -100,7 +102,14 @@ class JobListContent(Vertical):
             super().__init__()
             self.job_id = job_id
 
-    highlighted: reactive[int] = reactive(0)
+    class JobCancelRequested(Message):
+        """Posted when a job cancel is requested."""
+
+        def __init__(self, job_id: str) -> None:
+            super().__init__()
+            self.job_id = job_id
+
+    highlighted: reactive[int] = reactive(-1)
 
     def __init__(self, job_manager: JobManager, **kwargs) -> None:
         """Initialize the content.
@@ -109,6 +118,7 @@ class JobListContent(Vertical):
             job_manager: JobManager for listing jobs
         """
         super().__init__(**kwargs)
+        self.can_focus = True
         self._job_manager = job_manager
         self._jobs: list[Job] = []
         self._refresh_timer: Timer | None = None
@@ -131,10 +141,8 @@ class JobListContent(Vertical):
                 yield JobListItem(job)
 
     def on_mount(self) -> None:
-        """Start polling and update highlight on mount."""
+        """Start polling for job updates."""
         self._refresh_timer = self.set_interval(2.0, self._poll_refresh)
-        if self._jobs:
-            self._update_highlight()
 
     def on_unmount(self) -> None:
         """Stop polling when unmounted."""
@@ -151,12 +159,10 @@ class JobListContent(Vertical):
         """Refresh the job list from storage."""
         self._jobs = self._job_manager.list_jobs(limit=20)
 
-        # Handle transition between empty and populated states
         job_list = self.query("#job-list")
         empty_msg = self.query("#empty-message")
 
         if not self._jobs:
-            # No jobs - show empty message, hide job list
             if job_list:
                 job_list.first().remove()
             if not empty_msg:
@@ -168,33 +174,30 @@ class JobListContent(Vertical):
                 )
             return
 
-        # Has jobs - show job list, hide empty message
         if empty_msg:
             empty_msg.first().remove()
 
-        if not job_list:
-            # Create job list if it doesn't exist
-            scroll = VerticalScroll(id="job-list")
-            self.mount(scroll)
-            for job in self._jobs:
-                scroll.mount(JobListItem(job))
-        else:
-            # Update existing job list
-            existing_list = job_list.first()
-            existing_list.remove_children()
-            for job in self._jobs:
-                existing_list.mount(JobListItem(job))
-
+        self._mount_job_items(job_list)
         self._update_highlight()
+
+    def _mount_job_items(self, job_list) -> None:
+        """Mount job items into the job list, creating the container if needed."""
+        if job_list:
+            container = job_list.first()
+            container.remove_children()
+            for job in self._jobs:
+                container.mount(JobListItem(job))
+            return
+
+        scroll = VerticalScroll(id="job-list")
+        self.mount(scroll)
+        for job in self._jobs:
+            scroll.mount(JobListItem(job))
 
     def _update_highlight(self) -> None:
         """Update the highlight on job items."""
-        items = list(self.query(JobListItem))
-        for i, item in enumerate(items):
-            if i == self.highlighted:
-                item.add_class("-highlight")
-            if i != self.highlighted:
-                item.remove_class("-highlight")
+        for i, item in enumerate(self.query(JobListItem)):
+            item.set_class(i == self.highlighted, "-highlight")
 
     def watch_highlighted(self, value: int) -> None:
         """React to highlight changes."""
@@ -204,6 +207,13 @@ class JobListContent(Vertical):
         """Handle job selection from item click."""
         event.stop()
         self.post_message(self.JobSelected(event.job_id))
+
+    def on_job_list_item_cancel_requested(
+        self, event: JobListItem.CancelRequested
+    ) -> None:
+        """Handle cancel request from item - bubble up as JobCancelRequested."""
+        event.stop()
+        self.post_message(self.JobCancelRequested(event.job_id))
 
     def on_key(self, event: events.Key) -> None:
         """Handle keyboard navigation."""
@@ -216,6 +226,9 @@ class JobListContent(Vertical):
             return
 
         if event.key in ("up", "k"):
+            if self.highlighted < 0:
+                event.stop()
+                return
             self.highlighted = max(self.highlighted - 1, 0)
             event.stop()
             return
@@ -249,18 +262,18 @@ class SettingsContent(Vertical):
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Limit:", classes="settings-label")
                 yield Input(
-                    "",
+                    str(self._settings.limit) if self._settings.limit is not None else "",
                     id="limit-input",
                     classes="settings-input",
                     type="integer",
-                    placeholder=str(EvalSettings.DEFAULT_LIMIT),
+                    placeholder="All samples",
                 )
                 yield Label("Samples per task", classes="settings-hint")
 
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Epochs:", classes="settings-label")
                 yield Input(
-                    "",
+                    str(self._settings.epochs),
                     id="epochs-input",
                     classes="settings-input",
                     type="integer",
@@ -271,7 +284,7 @@ class SettingsContent(Vertical):
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Max Connections:", classes="settings-label")
                 yield Input(
-                    "",
+                    str(self._settings.max_connections),
                     id="max-connections-input",
                     classes="settings-input",
                     type="integer",
@@ -282,9 +295,10 @@ class SettingsContent(Vertical):
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Token Limit:", classes="settings-label")
                 yield Input(
-                    "",
+                    str(self._settings.token_limit) if self._settings.token_limit is not None else "",
                     id="token-limit-input",
                     classes="settings-input",
+                    type="integer",
                     placeholder="None",
                 )
                 yield Label("Per sample (optional)", classes="settings-hint")
@@ -292,9 +306,10 @@ class SettingsContent(Vertical):
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Message Limit:", classes="settings-label")
                 yield Input(
-                    "",
+                    str(self._settings.message_limit) if self._settings.message_limit is not None else "",
                     id="message-limit-input",
                     classes="settings-input",
+                    type="integer",
                     placeholder="None",
                 )
                 yield Label("Per sample (optional)", classes="settings-hint")
@@ -321,9 +336,11 @@ class SettingsContent(Vertical):
                 return None
 
         return EvalSettings(
-            limit=parse_int("limit-input", EvalSettings.DEFAULT_LIMIT),
+            limit=parse_optional_int("limit-input"),
             epochs=parse_int("epochs-input", EvalSettings.DEFAULT_EPOCHS),
-            max_connections=parse_int("max-connections-input", EvalSettings.DEFAULT_MAX_CONNECTIONS),
+            max_connections=parse_int(
+                "max-connections-input", EvalSettings.DEFAULT_MAX_CONNECTIONS
+            ),
             token_limit=parse_optional_int("token-limit-input"),
             message_limit=parse_optional_int("message-limit-input"),
         )
@@ -350,10 +367,6 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         Binding("escape", "close_or_cancel", "Close", show=False),
         Binding("tab", "next_tab", "Next Tab", show=False),
         Binding("shift+tab", "prev_tab", "Previous Tab", show=False),
-        Binding("up", "app.focus_previous", "Focus Previous", show=False),
-        Binding("down", "app.focus_next", "Focus Next", show=False),
-        Binding("left", "app.focus_previous", "Focus Previous", show=False),
-        Binding("right", "app.focus_next", "Focus Next", show=False),
     ]
 
     active_tab: reactive[str] = reactive("run-evals")
@@ -363,6 +376,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         job_manager: JobManager,
         settings_manager: EvalSettingsManager,
         model_configs: list[ModelConfig] | None = None,
+        on_start_job: Callable[[Job], None] | None = None,
     ) -> None:
         """Initialize the modal.
 
@@ -370,11 +384,13 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
             job_manager: JobManager instance (required)
             settings_manager: EvalSettingsManager for persisting settings
             model_configs: List of configured models
+            on_start_job: Callback to start a job without closing the modal
         """
         super().__init__()
         self._job_manager = job_manager
         self._settings_manager = settings_manager
         self._model_configs = model_configs or []
+        self._on_start_job = on_start_job
         self._run_evals_selected: set[str] | None = None
         self._settings = settings_manager.load()
 
@@ -434,6 +450,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
 
     def on_mount(self) -> None:
         """Set up the tabs on mount."""
+        self.query_one("#container").styles.opacity = 1.0
         header = self.query_one("#tab-header", TabHeader)
         header.add_tab("run-evals", "Evals", closable=False, activate=True)
         header.add_tab("view-progress", "Progress", closable=False, activate=False)
@@ -450,12 +467,8 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
     def _update_tab_panes(self, active_tab_id: str) -> None:
         """Show/hide tab panes based on active tab."""
         for pane in self.query(".tab-pane"):
-            pane_id = pane.id or ""
-            is_active = pane_id == f"{active_tab_id}-pane"
-            if is_active:
-                pane.add_class("-active")
-            if not is_active:
-                pane.remove_class("-active")
+            is_active = (pane.id or "") == f"{active_tab_id}-pane"
+            pane.set_class(is_active, "-active")
 
     def on_tab_header_tab_changed(self, event: TabHeader.TabChanged) -> None:
         """Handle tab switch."""
@@ -494,6 +507,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
     def _restore_view_progress_state(self) -> None:
         """Restore view progress tab state."""
         content = self.query_one("#view-progress-pane", JobListContent)
+        content.highlighted = -1
         content.refresh_jobs()
         content.focus()
 
@@ -510,6 +524,17 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         self._settings = event.settings
         self._settings_manager.save(self._settings)
 
+    def on_job_list_content_job_cancel_requested(
+        self, event: JobListContent.JobCancelRequested
+    ) -> None:
+        """Handle job cancel request - send SIGINT to subprocess."""
+        event.stop()
+        if self.app._eval_runner is not None:
+            self.app._eval_runner.cancel_job(event.job_id)
+        self.notify(f"Cancelling {event.job_id}...", severity="warning")
+        content = self.query_one("#view-progress-pane", JobListContent)
+        content.refresh_jobs()
+
     def on_job_list_content_job_selected(
         self, event: JobListContent.JobSelected
     ) -> None:
@@ -519,8 +544,59 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         if job is None:
             self.notify(f"Job {event.job_id} not found", severity="error")
             return
-        results = self._job_manager.get_job_results(event.job_id)
-        self.app.push_screen(JobDetailModal(job=job, results=results))
+        self.app.push_screen(JobDetailModal(job=job, job_manager=self._job_manager))
+
+    def on_eval_list_boundary_reached(
+        self, event: EvalList.BoundaryReached
+    ) -> None:
+        """Handle EvalList boundary -- route focus to header or run button."""
+        event.stop()
+        if event.direction == "down":
+            self.query_one("#run-btn", Button).focus()
+            return
+        self.query_one("#tab-header", TabHeader).focus()
+
+    def on_key(self, event: events.Key) -> None:
+        """Route arrow keys between header, content, and footer focus zones."""
+        if event.key not in ("up", "down", "left", "right"):
+            return
+
+        focused = self.app.focused
+        if focused is None:
+            return
+
+        # Content widgets handle their own arrow key navigation
+        if isinstance(focused, (EvalList, JobListContent, Input)):
+            return
+
+        if isinstance(focused, (TabHeader, TabItem)):
+            if event.key == "down":
+                event.stop()
+                self._focus_content_for_active_tab()
+                return
+            if event.key == "up":
+                event.stop()
+                return
+            return
+
+        if isinstance(focused, Button):
+            event.stop()
+            if event.key == "up":
+                self._focus_content_for_active_tab()
+            return
+
+    def _focus_content_for_active_tab(self) -> None:
+        """Focus the primary content widget for the currently active tab."""
+        if self.active_tab == "run-evals":
+            self.query_one("#eval-list", EvalList).focus()
+            return
+        if self.active_tab == "view-progress":
+            self.query_one("#view-progress-pane", JobListContent).focus()
+            return
+        if self.active_tab == "settings":
+            inputs = self.query("#settings-pane Input")
+            if inputs:
+                inputs.first().focus()
 
     def on_run_evals_content_run_requested(
         self, event: RunEvalsContent.RunRequested
@@ -546,7 +622,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
             self._run_selected(selected)
 
     def _run_selected(self, selected_benchmarks: list[str]) -> None:
-        """Validate and create a job for all configured models."""
+        """Validate, create a job, start it, and switch to Progress tab."""
         if not selected_benchmarks:
             self.notify("Please select at least one benchmark", severity="warning")
             return
@@ -561,7 +637,12 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
             settings=self._settings,
         )
 
-        self.dismiss(job)
+        if self._on_start_job is not None:
+            self._on_start_job(job)
+
+        # Switch to Progress tab so user can see the running job
+        header = self.query_one("#tab-header", TabHeader)
+        header.activate_tab("view-progress")
 
     def action_close_or_cancel(self) -> None:
         """Handle Escape - dismiss modal."""

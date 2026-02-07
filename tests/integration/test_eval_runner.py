@@ -58,7 +58,7 @@ class TestEvalSetParameters:
     """Verify eval_set is called with correct parameters."""
 
     def test_eval_set_called_with_correct_params(self, tmp_path: Path) -> None:
-        """run_eval_set passes correct config via subprocess stdin."""
+        """_run_eval_set passes correct config via subprocess stdin."""
         import json
 
         jobs_dir = tmp_path / "jobs"
@@ -72,13 +72,18 @@ class TestEvalSetParameters:
             status="running",
         )
 
-        with patch("satetoad.services.evals.runner.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stderr="")
+        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+            mock_process = MagicMock()
+            mock_process.communicate.return_value = ("", "")
+            mock_process.returncode = 0
+            mock_process.pid = 12345
+            mock_process.poll.return_value = None
+            mock_popen.return_value = mock_process
 
             runner.run_job(job)
 
-            mock_run.assert_called_once()
-            call_kwargs = mock_run.call_args[1]
+            mock_popen.assert_called_once()
+            call_kwargs = mock_process.communicate.call_args[1]
             config = json.loads(call_kwargs["input"])
 
             assert config["limit"] == 1

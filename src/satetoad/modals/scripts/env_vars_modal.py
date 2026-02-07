@@ -15,7 +15,12 @@ from typing import TYPE_CHECKING, ClassVar
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, HorizontalGroup, VerticalGroup, VerticalScroll
+from textual.containers import (
+    Horizontal,
+    HorizontalGroup,
+    VerticalGroup,
+    VerticalScroll,
+)
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 
@@ -100,6 +105,10 @@ class EnvVarsModal(ModalScreen[bool]):
             with HorizontalGroup(id="buttons"):
                 yield Button("Close", id="close-btn")
                 yield Button("Add", id="add-btn")
+
+    def on_mount(self) -> None:
+        """Fade in the modal container on mount."""
+        self.query_one("#container").styles.opacity = 1.0
 
     def _refresh_list(self) -> None:
         """Refresh the variables list from .env."""

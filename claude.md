@@ -94,6 +94,91 @@ Use subagents (Explore, Plan) to research codebase context. This preserves the c
 ### Simplicity First
 Prioritize clean, simple code over clever or complex solutions. Readability matters more than brevity.
 
+### Clean Code
+
+**Normalize at the source**: Functions should return clean, ready-to-use values. Never force consumers to strip prefixes, decode formats, or work around dirty data. If three callers all strip `"evals/"` from your return value, the function should strip it before returning.
+
+```python
+# Bad - every consumer must normalize
+def extract_accuracy(log) -> tuple[str, str, float]:
+    return (log.eval.model, log.eval.task, accuracy)  # "evals/teleqna"
+
+# Good - clean at the source
+def extract_accuracy(log) -> tuple[str, str, float]:
+    task_id = log.eval.task.rsplit("/", 1)[-1]  # "teleqna"
+    return (log.eval.model, task_id, accuracy)
+```
+
+**Variable names as communication**: Names answer "what is this?" at a glance. Max two words (one underscore). Natural English order. Name the content, not the container.
+
+```python
+# Bad - terse, ambiguous, or backwards
+data, columns, i, bid, value, model_raw = ...
+
+# Good - says what it holds
+dataset, score_cols, row, bench_id, raw_value, raw_model = ...
+```
+
+**Expand clever one-liners**: Each concept gets its own scannable line. Named intermediates serve as inline documentation.
+
+```python
+# Bad - forces reader to decode a tuple
+def sort_key(entry):
+    return (entry.tci is None, -(entry.tci or 0))
+
+# Good - each concept is named
+def score_rank(entry):
+    no_score = entry.tci is None
+    descending = -(entry.tci or 0)
+    return (no_score, descending)
+```
+
+**No permanent caching on mutable data**: Never use `@functools.cache` or `@lru_cache` on functions that read evolving state (files on disk, running processes, database rows). Permanent memoization freezes the first result forever, silently returning stale data. If you need caching, use time-bounded caching or let the caller control refresh frequency (e.g., a polling timer).
+
+```python
+# Bad - first call cached forever, stale for running jobs
+@cache
+def _cached_job_results(job_dir: str) -> dict:
+    return read_results_from_disk(job_dir)
+
+# Good - fresh read every call, caller controls poll interval
+def _load_job_results(job_dir: str) -> dict:
+    return read_results_from_disk(job_dir)
+```
+
+**Extract predicate helpers**: When an `if` condition inspects widget/object properties, extract it into a named `_is_*` method. The name replaces the need for a comment.
+
+```python
+# Bad - inline property inspection
+for widget in event.widget.ancestors_with_self:
+    if getattr(widget, "id", None) == "close-x":
+        self.dismiss(None)
+
+# Good - predicate as documentation
+def _is_close_button(self, widget) -> bool:
+    return getattr(widget, "id", None) == "close-x"
+
+for widget in event.widget.ancestors_with_self:
+    if self._is_close_button(widget):
+        self.dismiss(None)
+```
+
+**One concept per method**: When a method does two distinct things (e.g., build header + build rows), split into focused helpers. The parent method becomes a readable outline.
+
+```python
+# Bad - mixed concerns in one method
+def _update_scores_table(self) -> None:
+    # ...30 lines building header...
+    # ...30 lines building data rows...
+
+# Good - each step is named
+def _update_scores_table(self) -> None:
+    table = self.query_one("#scores-table")
+    table.remove_children()
+    self._mount_header_row(table, benchmarks)
+    self._mount_data_rows(table, models, benchmarks)
+```
+
 ### PEP Compliance
 Follow PEP guidelines as top priority:
 - PEP 8 (style)

@@ -16,6 +16,8 @@ from textual.widgets import Button, Static
 
 from satetoad.services.evals import Job, JobManager, JobStatus
 
+CANCEL_SYMBOL = "✕"
+
 STATUS_SYMBOLS: dict[JobStatus, str] = {
     "running": "●",
     "success": "◉",
@@ -53,11 +55,28 @@ class JobListItem(HorizontalGroup):
             text-wrap: nowrap;
             text-overflow: ellipsis;
         }
+
+        #cancel-btn {
+            width: 3;
+            color: #FF5555;
+
+            &:hover {
+                color: #FF5555;
+                text-style: bold;
+            }
+        }
     }
     """
 
     class Selected(Message):
         """Posted when this job is selected."""
+
+        def __init__(self, job_id: str) -> None:
+            super().__init__()
+            self.job_id = job_id
+
+    class CancelRequested(Message):
+        """Posted when the cancel button is clicked on a running job."""
 
         def __init__(self, job_id: str) -> None:
             super().__init__()
@@ -95,8 +114,16 @@ class JobListItem(HorizontalGroup):
         yield Static(STATUS_SYMBOLS[self._job.status], id="status")
         yield Static(display, id="job-info")
 
-    def on_click(self) -> None:
-        """Handle click - select this job."""
+        if self._job.status == "running":
+            yield Static(CANCEL_SYMBOL, id="cancel-btn")
+
+    def on_click(self, event: events.Click) -> None:
+        """Handle click - cancel button or select this job."""
+        cancel_btn = self.query("#cancel-btn")
+        if cancel_btn and event.widget is cancel_btn.first():
+            event.stop()
+            self.post_message(self.CancelRequested(self._job.id))
+            return
         self.post_message(self.Selected(self._job.id))
 
     def on_key(self, event: events.Key) -> None:
@@ -170,25 +197,27 @@ class JobListModal(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         """Compose the modal layout."""
+        self._jobs = self._job_manager.list_jobs(limit=20)
+
         with Vertical(id="container"):
             yield Static("View Progress", classes="modal-title")
+            yield from self._compose_job_list()
 
-            # Load jobs
-            self._jobs = self._job_manager.list_jobs(limit=20)
-
-            if self._jobs:
-                with VerticalScroll(id="job-list"):
-                    for job in self._jobs:
-                        yield JobListItem(job)
-            else:
-                yield Static(
-                    "No jobs yet.\nRun evaluations to create jobs.",
-                    id="empty-message",
-                )
-
-            # Close button
             with HorizontalGroup(id="buttons"):
                 yield Button("Close", id="close-btn", variant="default")
+
+    def _compose_job_list(self) -> ComposeResult:
+        """Compose either the job list or empty message."""
+        if not self._jobs:
+            yield Static(
+                "No jobs yet.\nRun evaluations to create jobs.",
+                id="empty-message",
+            )
+            return
+
+        with VerticalScroll(id="job-list"):
+            for job in self._jobs:
+                yield JobListItem(job)
 
     def on_mount(self) -> None:
         """Focus first job item if available."""
@@ -197,12 +226,8 @@ class JobListModal(ModalScreen[str | None]):
 
     def _update_highlight(self) -> None:
         """Update the highlight on job items."""
-        items = list(self.query(JobListItem))
-        for i, item in enumerate(items):
-            if i == self.highlighted:
-                item.add_class("-highlight")
-            else:
-                item.remove_class("-highlight")
+        for i, item in enumerate(self.query(JobListItem)):
+            item.set_class(i == self.highlighted, "-highlight")
 
     def watch_highlighted(self, value: int) -> None:
         """React to highlight changes."""
@@ -212,6 +237,14 @@ class JobListModal(ModalScreen[str | None]):
         """Handle button presses."""
         if event.button.id == "close-btn":
             self.dismiss(None)
+
+    def on_job_list_item_cancel_requested(
+        self, event: JobListItem.CancelRequested
+    ) -> None:
+        """Handle cancel request - forward to eval runner."""
+        event.stop()
+        if self.app._eval_runner is not None:
+            self.app._eval_runner.cancel_job(event.job_id)
 
     def on_job_list_item_selected(self, event: JobListItem.Selected) -> None:
         """Handle job selection."""

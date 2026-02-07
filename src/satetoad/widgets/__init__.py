@@ -40,10 +40,6 @@ from satetoad.widgets.configured_models_list import (
 # Environment variable widgets
 from satetoad.widgets.env_var_item import EnvVarItem
 
-# Agent widgets
-from satetoad.widgets.agent_item import AgentItem, pill
-from satetoad.widgets.agent_list import AgentList
-
 # Dropdown widgets
 from satetoad.widgets.dropdown_button import DropdownButton
 
@@ -70,10 +66,6 @@ __all__ = [
     "ConfiguredModelsList",
     # Environment variable
     "EnvVarItem",
-    # Agent widgets
-    "AgentItem",
-    "AgentList",
-    "pill",
     # Dropdown widgets
     "DropdownButton",
 ]

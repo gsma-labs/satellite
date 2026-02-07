@@ -111,7 +111,9 @@ class GridSelect(containers.ItemGrid, can_focus=True):
         if self.highlighted is None and self.children:
             self.highlighted = 0
 
-    def focus_at_column(self, column_x: int | None, from_direction: str = "down") -> None:
+    def focus_at_column(
+        self, column_x: int | None, from_direction: str = "down"
+    ) -> None:
         """Focus this grid and highlight the item closest to the given column.
 
         Args:

@@ -1,0 +1,66 @@
+/* ============================================
+   AGENT BOXES (Choose your fighter)
+   ============================================ */
+
+#agent-boxes {
+    height: auto;
+    padding: 1;
+    margin: 0;
+    grid-gutter: 1;
+    background: #282A36 80%;
+
+    &.-hidden {
+        display: none;
+    }
+}
+
+#agent-boxes AgentItem {
+    border: tall #6272A4 30%;
+    background: #282A36;
+    transition: border 250ms in_out_cubic;
+
+    &.-highlight {
+        background: #44475A;
+        border: tall #BD93F9;
+    }
+}
+
+AgentItem {
+    height: auto;
+    border: tall transparent;
+    padding: 0 1;
+    transition: border 250ms in_out_cubic;
+
+    &:hover {
+        background: #44475A;
+    }
+
+    &.-highlight {
+        background: #44475A;
+        border: tall #BD93F9;
+    }
+
+    Grid {
+        grid-size: 2 1;
+        grid-columns: 1fr auto;
+        height: auto;
+
+        #type {
+            text-align: right;
+        }
+    }
+
+    #name {
+        text-style: bold;
+        color: #F8F8F2;
+    }
+
+    #author {
+        text-style: italic;
+        color: #6272A4;
+    }
+
+    #description {
+        text-style: dim;
+    }
+}

@@ -24,7 +24,10 @@ from textual.widgets import Button, Input, Label, Select, Static
 
 from satetoad.examples.eval_data import MODEL_PROVIDERS, PROVIDERS_BY_CATEGORY
 from satetoad.services.config import EnvConfigManager, ModelConfig, normalize_model_path
-from satetoad.widgets.configured_models_list import ConfiguredModelItem, ConfiguredModelsList
+from satetoad.widgets.configured_models_list import (
+    ConfiguredModelItem,
+    ConfiguredModelsList,
+)
 
 # Titles for category-filtered modals
 CATEGORY_TITLES = {
@@ -109,7 +112,11 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         """
         super().__init__()
         # Filter providers by category, fallback to all
-        self._providers = PROVIDERS_BY_CATEGORY.get(category, MODEL_PROVIDERS) if category else MODEL_PROVIDERS
+        self._providers = (
+            PROVIDERS_BY_CATEGORY.get(category, MODEL_PROVIDERS)
+            if category
+            else MODEL_PROVIDERS
+        )
         # Title from category or explicit title
         self._title = CATEGORY_TITLES.get(category, title) if category else title
         self._initial_provider = initial_provider or (
@@ -175,6 +182,7 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
     def on_mount(self) -> None:
         """Initialize the model prefix hint and credential field when mounted."""
+        self.query_one("#container").styles.opacity = 1.0
         self._update_prefix_hint()
         self._update_credential_field_for_current_provider()
 
@@ -211,7 +219,9 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         env_var = provider.get("env_var", "")
         if provider.get("credential_type", "api_key") == "api_key" and env_var:
             key_exists = (
-                env_var in self._env_manager.get_all_vars() if self._env_manager else False
+                env_var in self._env_manager.get_all_vars()
+                if self._env_manager
+                else False
             )
             if not key_exists:
                 hints.append(f"[yellow]⚠ {env_var} not set (press 'c')[/yellow]")
@@ -279,7 +289,7 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
         # Replace old prefix with new prefix if value starts with it
         if old_prefix and current_value.startswith(old_prefix):
-            model_input.value = self._current_prefix + current_value[len(old_prefix):]
+            model_input.value = self._current_prefix + current_value[len(old_prefix) :]
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""

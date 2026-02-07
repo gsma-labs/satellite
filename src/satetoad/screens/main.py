@@ -34,8 +34,6 @@ from textual.screen import Screen
 from textual.widgets import Footer, Static
 
 from satetoad.examples.eval_data import (
-    AGENTS,
-    AGENTS_BY_SHORTCUT,
     APP_INFO,
     EVAL_BOXES,
     MODEL_BOXES,
@@ -45,14 +43,13 @@ from satetoad.modals import (
     LeaderboardModal,
     ModelConfig,
     SetModelModal,
-    SubmitData,
     SubmitModal,
+    SubmitResult,
     TabbedEvalsModal,
 )
 from satetoad.services.config import EnvConfigManager, EvalSettingsManager
 from satetoad.services.evals import EvalResult, Job, JobManager
 from satetoad.services.evals.job_manager import DEFAULT_JOBS_DIR
-from satetoad.widgets.agent_item import AgentItem
 from satetoad.widgets.eval_box import EvalBox
 from satetoad.widgets.grid_select import GridSelect
 from satetoad.widgets.julia_set import JuliaSet
@@ -84,14 +81,7 @@ class MainScreen(Screen):
         Binding("5", "goto_cloud_apis", "Cloud APIs", show=False),
         Binding("6", "goto_open_hosted", "Open Hosted", show=False),
         Binding("7", "goto_open_local", "Open Local", show=False),
-        # Agent quick launch keys
-        Binding("8", "launch_agent('8')", "React", show=False),
-        Binding("9", "launch_agent('9')", "Claude Code", show=False),
-        Binding("a", "launch_agent('a')", "Codex CLI", show=False),
-        Binding("b", "launch_agent('b')", "Gemini CLI", show=False),
         Binding("c", "env_vars", "Env Vars"),
-        Binding("d", "launch_agent('d')", "OpenHands", show=False),
-        Binding("e", "launch_agent('e')", "OpenCode", show=False),
         Binding("f", "quick_launch", "", show=False),
         # Resume
         Binding("ctrl+r", "resume", "Resume", show=False),
@@ -155,20 +145,6 @@ class MainScreen(Screen):
                     box_id=box["id"],
                 )
 
-        # Agents section heading
-        yield Static("Agents", classes="heading")
-
-        # Agent grid (Choose your fighter)
-        with GridSelect(id="agent-boxes", min_column_width=32, max_column_width=50):
-            for agent in AGENTS:
-                yield AgentItem(
-                    agent_id=agent["id"],
-                    agent_name=agent["name"],
-                    author_name=agent["author_name"],
-                    description=agent["description"],
-                    agent_type=agent["type"],
-                )
-
         yield Footer()
 
     def on_mount(self) -> None:
@@ -221,29 +197,10 @@ class MainScreen(Screen):
             event.column_x, from_direction="up"
         )
 
-    @on(GridSelect.LeaveDown, "#model-boxes")
-    def on_model_leave_down(self, event: GridSelect.LeaveDown) -> None:
-        """Move focus from model-boxes to agent-boxes when pressing down at bottom."""
-        self.query_one("#agent-boxes", GridSelect).focus_at_column(
-            event.column_x, from_direction="down"
-        )
-
-    @on(GridSelect.LeaveUp, "#agent-boxes")
-    def on_agent_leave_up(self, event: GridSelect.LeaveUp) -> None:
-        """Move focus from agent-boxes back to model-boxes when pressing up at top."""
-        self.query_one("#model-boxes", GridSelect).focus_at_column(
-            event.column_x, from_direction="up"
-        )
-
     @on(GridSelect.Selected)
     def on_box_selected(self, event: GridSelect.Selected) -> None:
         """Handle box selection - open corresponding modal overlay."""
         widget = event.selected_widget
-
-        # Handle agent items
-        if hasattr(widget, "agent_id"):
-            self._launch_agent(widget.agent_id, widget._agent_name)
-            return
 
         if not hasattr(widget, "box_id"):
             return
@@ -315,15 +272,12 @@ class MainScreen(Screen):
                 job_manager=self._job_manager,
                 settings_manager=self._settings_manager,
                 model_configs=self._configured_models,
+                on_start_job=self._start_job,
             ),
-            callback=self._on_evals_completed,
         )
 
-    def _on_evals_completed(self, job: Job | None) -> None:
-        """Handle the result from TabbedEvalsModal."""
-        if not job or self._job_manager is None:
-            return
-
+    def _start_job(self, job: Job) -> None:
+        """Start a job evaluation in a background thread."""
         model_count = len(job.evals)
         benchmark_count = len(next(iter(job.evals.values()), []))
         message = (
@@ -363,34 +317,38 @@ class MainScreen(Screen):
         )
 
     def _show_leaderboard_modal(self) -> None:
-        """Push the LeaderboardModal and handle the result via callback."""
-        self.app.push_screen(
-            LeaderboardModal(),
-            callback=self._on_leaderboard_closed,
-        )
-
-    def _on_leaderboard_closed(self, _result: None) -> None:
-        """Handle the LeaderboardModal close (view-only, no return value)."""
+        """Push the LeaderboardModal for viewing rankings."""
+        self.app.push_screen(LeaderboardModal(job_manager=self._job_manager))
 
     def _show_submit_modal(self) -> None:
         """Push the SubmitModal and handle the result via callback."""
-        # Pass first configured model for now (submit modal shows single model info)
-        first_config = self._configured_models[0] if self._configured_models else None
+        if self._job_manager is None:
+            self.notify("Job manager not initialized", severity="error")
+            return
         self.app.push_screen(
             SubmitModal(
-                model_config=first_config,
-                has_results=self._eval_results is not None,
+                job_manager=self._job_manager,
+                jobs_dir=self._job_manager.jobs_dir,
+                env_manager=self._env_config_manager,
             ),
             callback=self._on_submit_completed,
         )
 
-    def _on_submit_completed(self, data: SubmitData | None) -> None:
+    def _on_submit_completed(self, result: SubmitResult | None) -> None:
         """Handle the result from SubmitModal."""
-        if data is not None:
+        if result is None:
+            return
+        if result.status == "success":
             self.notify(
-                f"Submitted: {data.name}\nOrganization: {data.organization or 'N/A'}",
+                f"PR created: {result.pr_url}",
                 title="Submission Complete",
             )
+            return
+        self.notify(
+            f"Submission failed: {result.error}",
+            title="Submission Error",
+            severity="error",
+        )
 
     def action_goto_evals(self) -> None:
         """Open Evals modal (quick key 1)."""
@@ -435,20 +393,6 @@ class MainScreen(Screen):
     def action_quick_launch(self) -> None:
         """Handle quick launch for unassigned keys."""
         self.notify("No action assigned to this key.", title="Quick Launch")
-
-    def action_launch_agent(self, shortcut: str) -> None:
-        """Launch agent by shortcut key."""
-        agent = AGENTS_BY_SHORTCUT.get(shortcut)
-        if agent is None:
-            return
-        self._launch_agent(agent["id"], agent["name"])
-
-    def _launch_agent(self, agent_id: str, agent_name: str) -> None:
-        """Launch an agent (mock - just show notification)."""
-        self.notify(
-            f"Launching {agent_name}...",
-            title="Agent Launch",
-        )
 
     def action_env_vars(self) -> None:
         """Open Environment Variables modal (quick key c)."""

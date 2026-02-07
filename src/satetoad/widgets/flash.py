@@ -27,13 +27,16 @@ class Flash(Static):
     Flash {
         height: 1;
         background: $primary 10%;
-        visibility: hidden;
         dock: bottom;
         padding: 0 1;
+        opacity: 0;
+        offset-y: 1;
+        transition: opacity 300ms out_cubic, offset-y 300ms out_cubic;
     }
 
     Flash.-visible {
-        visibility: visible;
+        opacity: 1;
+        offset-y: 0;
     }
 
     Flash.-success {

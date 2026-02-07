@@ -27,12 +27,8 @@ TabbedEvalsModal #container {
     height: auto;
     background: #1E1F29;
     border: thick #BD93F9 20%;
-}
-
-/* Auto-width containers */
-SubmitModal #container {
-    max-width: 80;
-    width: auto;
+    opacity: 0;
+    transition: opacity 300ms out_cubic;
 }
 
 /* Responsive TabbedEvalsModal container */
@@ -64,7 +60,6 @@ TabbedEvalsModal .modal-title {
 
 /* Common button row styling */
 LeaderboardModal #buttons,
-SubmitModal #buttons,
 TabbedEvalsModal .button-row {
     height: auto;
     margin-top: 1;
@@ -73,7 +68,6 @@ TabbedEvalsModal .button-row {
 
 /* Base button styling - reset tint effects */
 LeaderboardModal #buttons Button,
-SubmitModal #buttons Button,
 TabbedEvalsModal .button-row Button {
     margin-left: 1;
     min-width: 12;
@@ -86,9 +80,6 @@ TabbedEvalsModal .button-row Button {
 LeaderboardModal #buttons Button:hover,
 LeaderboardModal #buttons Button:focus,
 LeaderboardModal #buttons Button.-active,
-SubmitModal #buttons Button:hover,
-SubmitModal #buttons Button:focus,
-SubmitModal #buttons Button.-active,
 TabbedEvalsModal .button-row Button:hover,
 TabbedEvalsModal .button-row Button:focus,
 TabbedEvalsModal .button-row Button.-active {
@@ -118,7 +109,6 @@ TabbedEvalsModal #empty-message {
  * ============================================================ */
 
 LeaderboardModal #buttons #close-btn,
-SubmitModal #buttons #submit-btn,
 TabbedEvalsModal #run-btn,
 TabbedEvalsModal #close-btn,
 TabbedEvalsModal #settings-close-btn {
@@ -128,7 +118,6 @@ TabbedEvalsModal #settings-close-btn {
 }
 
 LeaderboardModal #buttons #close-btn:hover,
-SubmitModal #buttons #submit-btn:hover,
 TabbedEvalsModal #run-btn:hover,
 TabbedEvalsModal #close-btn:hover,
 TabbedEvalsModal #settings-close-btn:hover {
@@ -136,7 +125,6 @@ TabbedEvalsModal #settings-close-btn:hover {
 }
 
 LeaderboardModal #buttons #close-btn:focus,
-SubmitModal #buttons #submit-btn:focus,
 TabbedEvalsModal #run-btn:focus,
 TabbedEvalsModal #close-btn:focus,
 TabbedEvalsModal #settings-close-btn:focus {
@@ -145,7 +133,6 @@ TabbedEvalsModal #settings-close-btn:focus {
 }
 
 LeaderboardModal #buttons #close-btn.-active,
-SubmitModal #buttons #submit-btn.-active,
 TabbedEvalsModal #run-btn.-active,
 TabbedEvalsModal #close-btn.-active,
 TabbedEvalsModal #settings-close-btn.-active {
@@ -156,20 +143,17 @@ TabbedEvalsModal #settings-close-btn.-active {
  * CANCEL BUTTON STYLING
  * ============================================================ */
 
-SubmitModal #buttons #cancel-btn,
 TabbedEvalsModal #cancel-btn {
     color: #faf9f5 60%;
     background: transparent;
     border: tall #282A36 20%;
 }
 
-SubmitModal #buttons #cancel-btn:focus,
 TabbedEvalsModal #cancel-btn:focus {
     color: #F8F8F2;
     border: tall #BD93F9;
 }
 
-SubmitModal #buttons #cancel-btn.-active,
 TabbedEvalsModal #cancel-btn.-active {
     background: transparent;
 }
@@ -232,27 +216,144 @@ LeaderboardModal .error-text {
 }
 
 /* ============================================================
- * SubmitModal SPECIFIC STYLES
+ * SubmitModal SPECIFIC STYLES - Multi-state pane visibility
  * ============================================================ */
 
-SubmitModal .form-row {
+/* Wider container for submit modal */
+SubmitModal #container {
+    max-width: 90;
+    width: auto;
     height: auto;
+    max-height: 30;
+}
+
+/* Hide all panes by default */
+SubmitModal .submit-pane {
+    display: none;
+    width: 1fr;
+    height: auto;
+}
+
+/* Show panes based on state class on the modal */
+SubmitModal.-state-select #select-pane {
+    display: block;
+}
+
+SubmitModal.-state-preview #preview-pane {
+    display: block;
+}
+
+SubmitModal.-state-submitting #submitting-pane {
+    display: block;
+}
+
+SubmitModal.-state-result #result-pane {
+    display: block;
+}
+
+/* Model list scroll area */
+SubmitModal #model-list-scroll {
+    height: auto;
+    max-height: 12;
     margin: 1 0;
-    align: left middle;
+    border: solid #BD93F9 30%;
+    padding: 0 1;
 }
 
-SubmitModal .form-label {
-    width: 18;
-    padding-right: 1;
+/* Scores scroll area */
+SubmitModal #scores-scroll {
+    height: auto;
+    max-height: 10;
+    margin: 1 0;
+    padding: 0 1;
+    border: solid #BD93F9 30%;
 }
 
-SubmitModal .form-input {
-    width: 40;
+/* Preview info text */
+SubmitModal #preview-info {
+    padding: 1 0;
+}
+
+/* Loading container */
+SubmitModal #submit-loading-container {
+    height: auto;
+    padding: 2;
+}
+
+SubmitModal #submit-loading-text {
+    color: #faf9f5 60%;
+    text-align: center;
+    margin-top: 1;
+}
+
+/* Result text */
+SubmitModal #result-message {
+    padding: 1 0;
+}
+
+SubmitModal #result-pr-url {
+    color: #8BE9FD;
+    padding: 0 0 1 0;
+}
+
+/* Button rows in submit modal panes */
+SubmitModal .button-row {
+    height: auto;
+    margin-top: 1;
+    align: right top;
+}
+
+SubmitModal .button-row Button {
+    margin-left: 1;
+    min-width: 12;
+    tint: transparent;
+    background-tint: transparent;
+    text-style: none;
+}
+
+/* Primary submit button */
+SubmitModal #submit-btn {
+    background: #BD93F9 30%;
+    border: tall #BD93F9 60%;
+    color: #F8F8F2;
+}
+
+SubmitModal #submit-btn:hover {
+    background: #BD93F9 50%;
+}
+
+SubmitModal #submit-btn:focus {
+    background: #BD93F9 40%;
+    border: tall #BD93F9;
+}
+
+/* Cancel / Back buttons */
+SubmitModal #cancel-btn,
+SubmitModal #back-btn {
+    color: #faf9f5 60%;
     background: transparent;
-    border: tall black 20%;
+    border: tall #282A36 20%;
 }
 
-SubmitModal .form-input:focus {
+SubmitModal #cancel-btn:focus,
+SubmitModal #back-btn:focus {
+    color: #F8F8F2;
+    border: tall #BD93F9;
+}
+
+/* Close button in result state - primary style */
+SubmitModal #close-btn {
+    background: #BD93F9 30%;
+    border: tall #BD93F9 60%;
+    color: #F8F8F2;
+}
+
+SubmitModal #close-btn:hover {
+    background: #BD93F9 50%;
+}
+
+SubmitModal #close-btn:focus {
+    background: #BD93F9 40%;
     border: tall #BD93F9;
 }
 

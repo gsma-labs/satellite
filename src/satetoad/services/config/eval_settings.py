@@ -12,11 +12,10 @@ DEFAULT_SETTINGS_PATH = Path.home() / ".satetoad" / "eval_settings.json"
 class EvalSettings:
     """Configuration for inspect-ai eval_set parameters."""
 
-    DEFAULT_LIMIT: ClassVar[int] = 1
     DEFAULT_EPOCHS: ClassVar[int] = 1
     DEFAULT_MAX_CONNECTIONS: ClassVar[int] = 10
 
-    limit: int = DEFAULT_LIMIT
+    limit: int | None = None
     epochs: int = DEFAULT_EPOCHS
     max_connections: int = DEFAULT_MAX_CONNECTIONS
     token_limit: int | None = None
@@ -36,7 +35,7 @@ class EvalSettingsManager:
         data = json.loads(self._path.read_text())
         defaults = EvalSettings()
         return EvalSettings(
-            limit=data.get("limit", defaults.limit),
+            limit=data.get("limit"),
             epochs=data.get("epochs", defaults.epochs),
             max_connections=data.get("max_connections", defaults.max_connections),
             token_limit=data.get("token_limit"),

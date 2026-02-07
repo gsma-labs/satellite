@@ -6,7 +6,7 @@ now correctly fetches and displays results instead of "No results yet".
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from textual.app import App
@@ -18,9 +18,23 @@ from satetoad.modals import (
     TabbedEvalsModal,
 )
 from satetoad.services.config import EvalSettingsManager
-from satetoad.services.evals import Job, JobManager
+from satetoad.services.evals import Job, JobDetails, JobManager
 from satetoad.widgets.tab_header import TabHeader
 from satetoad.widgets.tab_item import TabItem
+
+
+def _make_mock_job_manager(
+    job: Job,
+    results: dict[str, dict[str, float]] | None = None,
+    details: JobDetails | None = None,
+) -> MagicMock:
+    """Create a mock JobManager returning the given results/details."""
+    manager = MagicMock(spec=JobManager)
+    manager.list_jobs.return_value = [job]
+    manager.get_job.return_value = job
+    manager.get_job_results.return_value = results or {}
+    manager.get_job_details.return_value = details
+    return manager
 
 
 # ============================================================================
@@ -31,13 +45,20 @@ from satetoad.widgets.tab_item import TabItem
 class JobDetailModalTestApp(App):
     """Test app for JobDetailModal in isolation."""
 
-    def __init__(self, job: Job, results: dict[str, dict[str, float]] | None = None) -> None:
+    def __init__(
+        self,
+        job: Job,
+        results: dict[str, dict[str, float]] | None = None,
+        details: JobDetails | None = None,
+    ) -> None:
         super().__init__()
         self._job = job
-        self._results = results
+        self._job_manager = _make_mock_job_manager(job, results, details)
 
     def on_mount(self) -> None:
-        self.push_screen(JobDetailModal(job=self._job, results=self._results))
+        self.push_screen(
+            JobDetailModal(job=self._job, job_manager=self._job_manager)
+        )
 
 
 class TabbedEvalsJobSelectionTestApp(App):
@@ -171,8 +192,6 @@ class TestJobSelectionFetchesResults:
     @pytest.fixture
     def job_manager_with_results(self, tmp_path: Path) -> MagicMock:
         """Create a mock JobManager that returns results."""
-        manager = MagicMock(spec=JobManager)
-
         sample_job = Job(
             id="job_1",
             evals={"openai/gpt-4o": ["teleqna"]},
@@ -180,11 +199,16 @@ class TestJobSelectionFetchesResults:
             status="success",
         )
 
-        manager.list_jobs.return_value = [sample_job]
-        manager.get_job.return_value = sample_job
-        manager.get_job_results.return_value = {"openai/gpt-4o": {"teleqna": 0.85}}
-
-        return manager
+        return _make_mock_job_manager(
+            job=sample_job,
+            results={"openai/gpt-4o": {"teleqna": 0.85}},
+            details=JobDetails(
+                status="success",
+                total_samples=10,
+                total_tokens=5000,
+                duration_seconds=45.0,
+            ),
+        )
 
     async def test_selecting_job_calls_get_job_results(
         self,
@@ -215,14 +239,14 @@ class TestJobSelectionFetchesResults:
             await pilot.click(job_items[0])
             await pilot.pause()
 
-        # Verify get_job_results was called
-        job_manager_with_results.get_job_results.assert_called_once_with("job_1")
+        # Verify get_job_results was called (once by on_mount of the detail modal)
+        job_manager_with_results.get_job_results.assert_called_with("job_1")
 
-    async def test_job_detail_modal_receives_results(
+    async def test_job_detail_modal_receives_job_manager(
         self,
         job_manager_with_results: MagicMock,
     ) -> None:
-        """JobDetailModal receives results when opened from job selection."""
+        """JobDetailModal receives job_manager when opened from job selection."""
         model_configs = [
             ModelConfig(provider="openai", api_key="sk-test", model="gpt-4o")
         ]
@@ -245,9 +269,9 @@ class TestJobSelectionFetchesResults:
             await pilot.click(job_items[0])
             await pilot.pause()
 
-        # Verify the pushed modal received results
+        # Verify the pushed modal has a job_manager reference
         assert app.pushed_detail_modal is not None
-        assert app.pushed_detail_modal._results == {"openai/gpt-4o": {"teleqna": 0.85}}
+        assert app.pushed_detail_modal._job_manager is job_manager_with_results
 
 
 # ============================================================================

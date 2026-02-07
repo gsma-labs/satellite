@@ -10,10 +10,10 @@ from textual.content import Content
 
 # Pill colors by type (Dracula theme)
 TYPE_COLORS = {
-    "coding": ("#BD93F9", "#282A36"),   # Purple
+    "coding": ("#BD93F9", "#282A36"),  # Purple
     "general": ("#FFB86C", "#282A36"),  # Orange
-    "chat": ("#50FA7B", "#282A36"),     # Green
-    "mix": ("#8BE9FD", "#282A36"),      # Cyan
+    "chat": ("#50FA7B", "#282A36"),  # Green
+    "mix": ("#8BE9FD", "#282A36"),  # Cyan
 }
 
 

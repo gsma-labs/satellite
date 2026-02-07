@@ -32,6 +32,7 @@ class TabItem(HorizontalGroup):
         color: #faf9f5 60%;
         border: tall black 20%;
         content-align: center middle;
+        transition: border 250ms in_out_cubic, color 250ms in_out_cubic;
 
         &:hover {
             background: #BD93F9 10%;

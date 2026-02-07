@@ -11,6 +11,7 @@ Key concepts:
 """
 
 from dataclasses import dataclass
+from typing import Literal
 
 from textual import containers
 from textual.binding import Binding
@@ -165,6 +166,12 @@ class EvalList(containers.VerticalGroup, can_focus=True):
     highlighted: reactive[int | None] = reactive(None)
 
     @dataclass
+    class BoundaryReached(Message):
+        """Posted when cursor hits the top or bottom boundary of the list."""
+
+        direction: Literal["up", "down"]
+
+    @dataclass
     class SelectionChanged(Message):
         """Posted when selection state changes."""
 
@@ -234,24 +241,24 @@ class EvalList(containers.VerticalGroup, can_focus=True):
         return max(0, min(value, len(self._items) - 1))
 
     def action_cursor_up(self) -> None:
-        """Move highlight up, or move focus to previous widget if at start."""
+        """Move highlight up, or signal boundary reached at start."""
         if self.highlighted is None:
             self.highlighted = 0
-        elif self.highlighted > 0:
+            return
+        if self.highlighted > 0:
             self.highlighted -= 1
-        else:
-            # At the first item - move focus to previous focusable widget
-            self.app.action_focus_previous()
+            return
+        self.post_message(self.BoundaryReached("up"))
 
     def action_cursor_down(self) -> None:
-        """Move highlight down, or move focus to next widget if at end."""
+        """Move highlight down, or signal boundary reached at end."""
         if self.highlighted is None:
             self.highlighted = 0
-        elif self.highlighted < len(self._items) - 1:
+            return
+        if self.highlighted < len(self._items) - 1:
             self.highlighted += 1
-        else:
-            # At the last item - move focus to next focusable widget
-            self.app.action_focus_next()
+            return
+        self.post_message(self.BoundaryReached("down"))
 
     def action_toggle(self) -> None:
         """Toggle selection of highlighted item."""

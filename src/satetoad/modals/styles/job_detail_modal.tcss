@@ -12,6 +12,8 @@ JobDetailModal #container {
     padding: 0 2 1 2;
     background: #1E1F29;
     border: thick #BD93F9 20%;
+    opacity: 0;
+    transition: opacity 300ms out_cubic;
 }
 
 JobDetailModal #header {
@@ -124,4 +126,34 @@ JobDetailModal .scores-cell:last-child {
 
 JobDetailModal .score-pending {
     color: #6272A4;
+}
+
+/* Compact metadata grid (2x2) */
+JobDetailModal .metadata-row {
+    height: 1;
+    width: 100%;
+    margin-top: 1;
+}
+
+JobDetailModal .meta-label {
+    width: auto;
+    color: #faf9f5 60%;
+}
+
+JobDetailModal .meta-value {
+    width: 1fr;
+    color: #F8F8F2;
+    padding: 0 1;
+}
+
+/* Trace link */
+JobDetailModal .trace-link {
+    color: #BD93F9;
+    margin-top: 1;
+    margin-left: 1;
+}
+
+JobDetailModal .trace-link:hover {
+    color: #FF79C6;
+    text-style: underline;
 }

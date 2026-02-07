@@ -98,9 +98,7 @@ class EnvVarItem(Static):
         yield Label(self._var_name, classes="var-name")
         yield Label(_mask_value(self._var_value), classes="var-value")
         # Sanitize ID: replace any non-alphanumeric chars with dash
-        sanitized_id = "".join(
-            c if c.isalnum() else "-" for c in self._var_name
-        )
+        sanitized_id = "".join(c if c.isalnum() else "-" for c in self._var_name)
         yield Button("x", classes="delete-btn", id=f"delete-{sanitized_id}")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -20,6 +20,8 @@ SetModelModal #container {
     height: auto;
     background: #1E1F29;
     border: thick #BD93F9 20%;
+    opacity: 0;
+    transition: opacity 300ms out_cubic;
 }
 
 SetModelModal .modal-title {

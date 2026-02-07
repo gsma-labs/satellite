@@ -2,7 +2,6 @@ import json
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import cache
 from pathlib import Path
 from typing import Literal
 
@@ -23,13 +22,30 @@ STATUS_PRIORITY: dict[JobStatus, int] = {
 }
 
 
+def _map_log_status(log: EvalLog) -> JobStatus:
+    """Map an EvalLog status to a JobStatus, treating 'started' as 'running'."""
+    if log.status == "started":
+        return "running"
+    return log.status
+
+
+@dataclass(frozen=True)
+class JobDetails:
+    """Aggregated metadata for a job across all eval logs."""
+
+    status: JobStatus
+    total_samples: int
+    total_tokens: int
+    duration_seconds: float | None
+
+
 def _parse_eval_set(eval_set_file: Path) -> tuple[str, list[str]] | None:
     """Parse eval-set.json and return (model, benchmarks) or None."""
     data = json.loads(eval_set_file.read_text())
     tasks = data.get("tasks", [])
     if not tasks:
         return None
-    return (tasks[0]["model"], [t["name"] for t in tasks])
+    return (tasks[0]["model"], [t["name"].rsplit("/", 1)[-1] for t in tasks])
 
 
 def read_status(model_dir: Path) -> JobStatus:
@@ -38,14 +54,7 @@ def read_status(model_dir: Path) -> JobStatus:
     if not logs:
         return "error"
 
-    statuses: list[JobStatus] = []
-    for log_path in logs:
-        log = read_eval_log(log_path, header_only=True)
-        if log.status == "started":
-            statuses.append("running")
-            continue
-        statuses.append(log.status)
-
+    statuses = [_map_log_status(read_eval_log(p, header_only=True)) for p in logs]
     return min(statuses, key=STATUS_PRIORITY.get)
 
 
@@ -57,24 +66,76 @@ def aggregate_status(model_dirs: Iterable[Path]) -> JobStatus:
 
 def extract_accuracy(log: EvalLog) -> tuple[str, str, float] | None:
     """Extract (model, task_name, accuracy) from an eval log."""
-    if not (log.eval and log.eval.task and log.eval.model and log.results and log.results.scores):
+    if not log.eval or not log.eval.task or not log.eval.model:
         return None
+    if not log.results or not log.results.scores:
+        return None
+
     accuracy = log.results.scores[0].metrics.get("accuracy")
     if not accuracy:
         return None
-    return (log.eval.model, log.eval.task, accuracy.value)
+
+    task_short_name = log.eval.task.rsplit("/", 1)[-1]
+    return (log.eval.model, task_short_name, accuracy.value)
 
 
-@cache
-def _cached_job_results(job_dir: str) -> dict[str, dict[str, float]]:
-    """Return {model: {benchmark: score}}. String path for hashability."""
+def _load_job_results(job_dir: str) -> dict[str, dict[str, float]]:
+    """Return {model: {benchmark: score}}."""
     results: dict[str, dict[str, float]] = {}
     for log_path in list_eval_logs(job_dir, recursive=True):
         log = read_eval_log(log_path, header_only=True)
-        if triple := extract_accuracy(log):
-            model, task, accuracy = triple
-            results.setdefault(model, {})[task] = accuracy
+        triple = extract_accuracy(log)
+        if triple is None:
+            continue
+
+        model, task, accuracy = triple
+        results.setdefault(model, {})[task] = accuracy
     return results
+
+
+def _load_job_details(job_dir: str) -> JobDetails | None:
+    """Aggregate metadata across all eval logs in a job."""
+    logs = list(list_eval_logs(job_dir, recursive=True))
+    if not logs:
+        return None
+
+    total_samples = 0
+    total_tokens = 0
+    started_times: list[datetime] = []
+    completed_times: list[datetime] = []
+    statuses: list[JobStatus] = []
+
+    for log_path in logs:
+        log = read_eval_log(log_path, header_only=True)
+        statuses.append(_map_log_status(log))
+
+        if log.status == "started":
+            continue
+
+        if log.results:
+            total_samples += log.results.total_samples
+
+        if log.stats:
+            for usage in log.stats.model_usage.values():
+                total_tokens += usage.total_tokens
+
+            if log.stats.started_at:
+                started_times.append(datetime.fromisoformat(log.stats.started_at))
+            if log.stats.completed_at:
+                completed_times.append(datetime.fromisoformat(log.stats.completed_at))
+
+    status = min(statuses, key=STATUS_PRIORITY.get, default="running")
+
+    duration_seconds = None
+    if started_times and completed_times:
+        duration_seconds = (max(completed_times) - min(started_times)).total_seconds()
+
+    return JobDetails(
+        status=status,
+        total_samples=total_samples,
+        total_tokens=total_tokens,
+        duration_seconds=duration_seconds,
+    )
 
 
 @dataclass(frozen=True)
@@ -121,11 +182,15 @@ class JobManager:
 
         evals: dict[str, list[str]] = {}
         model_dirs: list[Path] = []
-        for f in eval_files:
-            if parsed := _parse_eval_set(f):
-                model, benchmarks = parsed
-                evals[model] = benchmarks
-                model_dirs.append(f.parent)
+
+        for eval_file in eval_files:
+            parsed = _parse_eval_set(eval_file)
+            if parsed is None:
+                continue
+
+            model, benchmarks = parsed
+            evals[model] = benchmarks
+            model_dirs.append(eval_file.parent)
 
         if not evals:
             return None
@@ -133,17 +198,21 @@ class JobManager:
         return Job(
             id=job_dir.name,
             evals=evals,
-            created_at=min((datetime.fromtimestamp(f.stat().st_mtime) for f in eval_files), default=datetime.now()),
+            created_at=min(
+                (datetime.fromtimestamp(f.stat().st_mtime) for f in eval_files),
+                default=datetime.now(),
+            ),
             status=aggregate_status(model_dirs),
         )
 
     def list_jobs(self, limit: int | None = None) -> list[Job]:
         """List jobs, running first, then by recency."""
-        jobs = sorted(
-            (job for d in self.job_dirs() if (job := self.load_job(d))),
-            key=lambda j: (j.status != "running", -j.created_at.timestamp()),
-        )
-        return jobs[:limit] if limit else jobs
+        jobs = [job for d in self.job_dirs() if (job := self.load_job(d))]
+        jobs.sort(key=lambda j: (j.status != "running", -j.created_at.timestamp()))
+
+        if limit is None:
+            return jobs
+        return jobs[:limit]
 
     def get_job(self, job_id: str) -> Job | None:
         job_dir = self.jobs_dir / job_id
@@ -156,4 +225,11 @@ class JobManager:
         job_dir = self.jobs_dir / job_id
         if not job_dir.exists():
             return {}
-        return _cached_job_results(str(job_dir))
+        return _load_job_results(str(job_dir))
+
+    def get_job_details(self, job_id: str) -> JobDetails | None:
+        """Get aggregated metadata (status, samples, tokens, duration) for a job."""
+        job_dir = self.jobs_dir / job_id
+        if not job_dir.exists():
+            return None
+        return _load_job_details(str(job_dir))

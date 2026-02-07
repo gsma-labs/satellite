@@ -90,7 +90,13 @@ class SatetoadApp(App):
         """Launch inspect view subprocess pointing to logs directory."""
         self._stop_view_process()
 
-        cmd = [*INSPECT_VIEW_CMD, "--log-dir", str(log_dir), "--port", str(INSPECT_VIEW_PORT)]
+        cmd = [
+            *INSPECT_VIEW_CMD,
+            "--log-dir",
+            str(log_dir),
+            "--port",
+            str(INSPECT_VIEW_PORT),
+        ]
         try:
             self._view_process = subprocess.Popen(
                 cmd,

@@ -8,7 +8,7 @@ Reads JSON config from stdin:
     "model": "openai/gpt-4",
     "benchmarks": ["teleqna"],
     "log_dir": "/path",
-    "limit": 1,
+    "limit": null,
     "epochs": 1,
     "max_connections": 10,
     "token_limit": null,
@@ -61,22 +61,20 @@ def run_evals(config: dict) -> int:
         print(f"No valid tasks for benchmarks: {config['benchmarks']}", file=sys.stderr)
         return 1
 
-    # Build eval_set kwargs from config (runner.py always provides all values)
     kwargs: dict = {
         "tasks": tasks,
         "model": config["model"],
         "log_dir": config["log_dir"],
-        "limit": config["limit"],
         "epochs": config["epochs"],
         "max_connections": config["max_connections"],
         "log_format": EVAL_LOG_FORMAT,
         "display": EVAL_DISPLAY,
     }
-
-    # Add optional limits if specified
-    if config.get("token_limit"):
+    if "limit" in config:
+        kwargs["limit"] = config["limit"]
+    if "token_limit" in config:
         kwargs["token_limit"] = config["token_limit"]
-    if config.get("message_limit"):
+    if "message_limit" in config:
         kwargs["message_limit"] = config["message_limit"]
 
     success, _ = eval_set(**kwargs)
