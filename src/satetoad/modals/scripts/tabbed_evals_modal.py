@@ -156,9 +156,26 @@ class JobListContent(Vertical):
         self.refresh_jobs()
 
     def refresh_jobs(self) -> None:
-        """Refresh the job list from storage."""
-        self._jobs = self._job_manager.list_jobs(limit=20)
+        """Refresh the job list from storage with in-place updates."""
+        fresh_jobs = self._job_manager.list_jobs(limit=20)
 
+        if self._job_ids_changed(fresh_jobs):
+            self._jobs = fresh_jobs
+            self._rebuild_job_list()
+            self._update_highlight()
+            return
+
+        self._jobs = fresh_jobs
+        self._update_existing_items()
+
+    def _job_ids_changed(self, fresh_jobs: list[Job]) -> bool:
+        """Check if the job ID set has changed."""
+        old_ids = {j.id for j in self._jobs}
+        new_ids = {j.id for j in fresh_jobs}
+        return old_ids != new_ids
+
+    def _rebuild_job_list(self) -> None:
+        """Fully rebuild the job list (when jobs are added/removed)."""
         job_list = self.query("#job-list")
         empty_msg = self.query("#empty-message")
 
@@ -177,11 +194,6 @@ class JobListContent(Vertical):
         if empty_msg:
             empty_msg.first().remove()
 
-        self._mount_job_items(job_list)
-        self._update_highlight()
-
-    def _mount_job_items(self, job_list) -> None:
-        """Mount job items into the job list, creating the container if needed."""
         if job_list:
             container = job_list.first()
             container.remove_children()
@@ -193,6 +205,16 @@ class JobListContent(Vertical):
         self.mount(scroll)
         for job in self._jobs:
             scroll.mount(JobListItem(job))
+
+    def _update_existing_items(self) -> None:
+        """Update existing job items in-place with fresh data."""
+        items = list(self.query(JobListItem))
+        job_by_id = {j.id: j for j in self._jobs}
+        for item in items:
+            fresh = job_by_id.get(item.job_id)
+            if fresh is None:
+                continue
+            item.update_job(fresh)
 
     def _update_highlight(self) -> None:
         """Update the highlight on job items."""

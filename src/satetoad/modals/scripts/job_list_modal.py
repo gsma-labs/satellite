@@ -12,7 +12,8 @@ from textual.containers import HorizontalGroup, Vertical, VerticalScroll
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
-from textual.widgets import Button, Static
+from textual.timer import Timer
+from textual.widgets import Button, ProgressBar, Static
 
 from satetoad.services.evals import Job, JobManager, JobStatus
 
@@ -51,13 +52,26 @@ class JobListItem(HorizontalGroup):
         }
 
         #job-info {
-            width: 1fr;
+            width: auto;
+            margin: 0 2 0 0;
             text-wrap: nowrap;
             text-overflow: ellipsis;
         }
 
+        ProgressBar {
+            width: 1fr;
+            height: 1;
+            padding: 0;
+        }
+
+        Bar {
+            width: 1fr;
+        }
+
         #cancel-btn {
+            dock: right;
             width: 3;
+            height: 1;
             color: #FF5555;
 
             &:hover {
@@ -90,6 +104,8 @@ class JobListItem(HorizontalGroup):
         """
         super().__init__()
         self._job = job
+        self._last_bar_total = 0
+        self._last_bar_progress = 0
         self.can_focus = True
         self.add_class(f"-{job.status}")
 
@@ -99,28 +115,86 @@ class JobListItem(HorizontalGroup):
         return self._job.id
 
     def compose(self) -> ComposeResult:
-        """Compose the job item layout."""
-        models = list(self._job.evals.keys())
-        model_text = models[0] if len(models) == 1 else f"{len(models)} models"
-
-        benchmarks = list(self._job.evals.values())[0] if self._job.evals else []
-        benchmark_text = ", ".join(benchmarks[:3])
-        if len(benchmarks) > 3:
-            benchmark_text += f" +{len(benchmarks) - 3}"
-
-        # Single inline with middle dot separators
-        display = f"{self._job.id} · {model_text} · {benchmark_text}"
-
+        """Compose the job item layout: status icon + job id + progress bar + cancel."""
         yield Static(STATUS_SYMBOLS[self._job.status], id="status")
-        yield Static(display, id="job-info")
+        yield Static(self._job.id, id="job-info")
+        yield self._build_progress_bar()
 
         if self._job.status == "running":
             yield Static(CANCEL_SYMBOL, id="cancel-btn")
 
+    def _build_progress_bar(self) -> ProgressBar:
+        """Build a ProgressBar reflecting the current job state."""
+        total, _ = self._desired_bar_values()
+        return ProgressBar(total=total, show_percentage=False, show_eta=False)
+
+    def _is_stopped(self) -> bool:
+        """Check if the job is in a terminal non-success state."""
+        return self._job.status in ("error", "cancelled")
+
+    def on_mount(self) -> None:
+        """Set the initial progress bar value after mount."""
+        total, progress = self._desired_bar_values()
+        self._last_bar_total = total
+        self._last_bar_progress = progress
+        bar = self.query_one(ProgressBar)
+        bar.update(total=total, progress=progress)
+
+    def update_job(self, job: Job) -> None:
+        """Update this item with refreshed job data."""
+        old_status = self._job.status
+        self._job = job
+
+        if old_status != job.status:
+            self.remove_class(f"-{old_status}")
+            self.add_class(f"-{job.status}")
+            self.query_one("#status", Static).update(STATUS_SYMBOLS[job.status])
+
+        self._sync_progress_bar()
+        self._sync_cancel_button()
+
+    def _sync_progress_bar(self) -> None:
+        """Update the progress bar in-place, skipping no-op updates."""
+        total, progress = self._desired_bar_values()
+        if total == self._last_bar_total and progress == self._last_bar_progress:
+            return
+
+        self._last_bar_total = total
+        self._last_bar_progress = progress
+
+        bar = self.query_one(ProgressBar)
+        bar.update(total=total, progress=progress)
+
+    def _desired_bar_values(self) -> tuple[int, int]:
+        """Return (total, progress) for the progress bar."""
+        if self._job.status == "success":
+            return (100, 100)
+        if self._is_stopped():
+            if self._job.completed_evals == 0:
+                return (100, 100)
+            return (max(self._job.total_evals, 1), self._job.completed_evals)
+        if self._job.total_evals > 0:
+            return (self._job.total_evals, self._job.completed_evals)
+        return (100, 0)
+
+    def _sync_cancel_button(self) -> None:
+        """Show or hide the cancel button based on job status."""
+        cancel_btns = self.query("#cancel-btn")
+        if self._job.status == "running" and not cancel_btns:
+            self.mount(Static(CANCEL_SYMBOL, id="cancel-btn"))
+        if self._job.status != "running" and cancel_btns:
+            cancel_btns.first().remove()
+
+    def _is_cancel_click(self, event: events.Click) -> bool:
+        """Check if the click target is the cancel button."""
+        for widget in event.widget.ancestors_with_self:
+            if getattr(widget, "id", None) == "cancel-btn":
+                return True
+        return False
+
     def on_click(self, event: events.Click) -> None:
         """Handle click - cancel button or select this job."""
-        cancel_btn = self.query("#cancel-btn")
-        if cancel_btn and event.widget is cancel_btn.first():
+        if self._is_cancel_click(event):
             event.stop()
             self.post_message(self.CancelRequested(self._job.id))
             return
@@ -133,20 +207,14 @@ class JobListItem(HorizontalGroup):
             self.post_message(self.Selected(self._job.id))
 
 
+EMPTY_JOBS_MESSAGE = "No jobs yet. Run evaluations to create jobs."
+
+
 class JobListModal(ModalScreen[str | None]):
     """Modal for viewing and selecting evaluation jobs.
 
     Returns the selected job ID, or None if cancelled.
-
-    Layout:
-    ╭─────────────────────────────────────╮
-    │           View Progress             │
-    ├─────────────────────────────────────┤
-    │  jobs_1   openai/gpt-4o   TeleQnA   │
-    │  jobs_2   anthropic/...   TeleMath  │
-    │                                     │
-    │              [Close]                │
-    ╰─────────────────────────────────────╯
+    Polls every 2 seconds to update progress bars.
     """
 
     CSS_PATH = "../styles/modal_base.tcss"
@@ -194,6 +262,7 @@ class JobListModal(ModalScreen[str | None]):
         super().__init__()
         self._job_manager = job_manager
         self._jobs: list[Job] = []
+        self._refresh_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the modal layout."""
@@ -209,10 +278,7 @@ class JobListModal(ModalScreen[str | None]):
     def _compose_job_list(self) -> ComposeResult:
         """Compose either the job list or empty message."""
         if not self._jobs:
-            yield Static(
-                "No jobs yet.\nRun evaluations to create jobs.",
-                id="empty-message",
-            )
+            yield Static(EMPTY_JOBS_MESSAGE, id="empty-message")
             return
 
         with VerticalScroll(id="job-list"):
@@ -220,9 +286,70 @@ class JobListModal(ModalScreen[str | None]):
                 yield JobListItem(job)
 
     def on_mount(self) -> None:
-        """Focus first job item if available."""
+        """Focus first job item if available and start polling."""
         if self._jobs:
             self._update_highlight()
+        self._refresh_timer = self.set_interval(2.0, self._refresh_jobs)
+
+    def on_unmount(self) -> None:
+        """Stop polling when unmounted."""
+        if self._refresh_timer is not None:
+            self._refresh_timer.stop()
+
+    def _refresh_jobs(self) -> None:
+        """Poll job manager and update items in-place."""
+        fresh_jobs = self._job_manager.list_jobs(limit=20)
+
+        if self._job_ids_changed(fresh_jobs):
+            self._jobs = fresh_jobs
+            self._rebuild_job_list()
+            return
+
+        self._jobs = fresh_jobs
+        self._update_existing_items()
+
+    def _job_ids_changed(self, fresh_jobs: list[Job]) -> bool:
+        """Check if the job ID set has changed (new/removed jobs)."""
+        old_ids = {j.id for j in self._jobs}
+        new_ids = {j.id for j in fresh_jobs}
+        return old_ids != new_ids
+
+    def _rebuild_job_list(self) -> None:
+        """Fully rebuild the job list (when jobs are added/removed)."""
+        job_list = self.query("#job-list")
+        empty_msg = self.query("#empty-message")
+
+        if not self._jobs:
+            if job_list:
+                job_list.first().remove()
+            if not empty_msg:
+                self.mount(Static(EMPTY_JOBS_MESSAGE, id="empty-message"))
+            return
+
+        if empty_msg:
+            empty_msg.first().remove()
+
+        if job_list:
+            container = job_list.first()
+            container.remove_children()
+            for job in self._jobs:
+                container.mount(JobListItem(job))
+            return
+
+        scroll = VerticalScroll(id="job-list")
+        self.mount(scroll)
+        for job in self._jobs:
+            scroll.mount(JobListItem(job))
+
+    def _update_existing_items(self) -> None:
+        """Update existing job items in-place with fresh data."""
+        items = list(self.query(JobListItem))
+        job_by_id = {j.id: j for j in self._jobs}
+        for item in items:
+            fresh = job_by_id.get(item.job_id)
+            if fresh is None:
+                continue
+            item.update_job(fresh)
 
     def _update_highlight(self) -> None:
         """Update the highlight on job items."""

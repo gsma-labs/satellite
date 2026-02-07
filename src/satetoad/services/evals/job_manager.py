@@ -29,6 +29,51 @@ def _map_log_status(log: EvalLog) -> JobStatus:
     return log.status
 
 
+def _has_eval_metadata(log: EvalLog) -> bool:
+    """Check whether the log has enough metadata to extract task/model info."""
+    return bool(log.eval and log.eval.task and log.eval.model)
+
+
+def _task_name(log: EvalLog) -> str:
+    """Extract the short task name from an eval log (e.g. 'evals/teleqna' -> 'teleqna')."""
+    return log.eval.task.rsplit("/", 1)[-1]
+
+
+def _aggregate_status_and_progress(
+    model_dirs: Iterable[Path],
+) -> tuple[JobStatus, int, int, int, int]:
+    """Return (status, completed_evals, total_evals, completed_samples, total_samples).
+
+    Completed evals are those with log.results (success, error, cancelled).
+    For completed evals: samples come from log.results.completed_samples / total_samples.
+    For running evals: total comes from log.eval.dataset.samples, completed stays 0.
+    """
+    statuses: list[JobStatus] = []
+    completed_evals = 0
+    total_evals = 0
+    completed_samples = 0
+    total_samples = 0
+
+    for model_dir in model_dirs:
+        for log_ref in list_eval_logs(str(model_dir)):
+            log = read_eval_log(log_ref, header_only=True)
+            statuses.append(_map_log_status(log))
+            total_evals += 1
+
+            if log.results:
+                completed_evals += 1
+                completed_samples += log.results.completed_samples
+                total_samples += log.results.total_samples
+                continue
+
+            # Running eval — total from dataset metadata, 0 completed
+            if log.eval and log.eval.dataset and log.eval.dataset.samples:
+                total_samples += log.eval.dataset.samples
+
+    status = min(statuses, key=STATUS_PRIORITY.get, default="running")
+    return status, completed_evals, total_evals, completed_samples, total_samples
+
+
 @dataclass(frozen=True)
 class JobDetails:
     """Aggregated metadata for a job across all eval logs."""
@@ -172,6 +217,10 @@ class Job:
     created_at: datetime = field(default_factory=datetime.now)
     status: JobStatus = "running"
     settings: EvalSettings = field(default_factory=EvalSettings)
+    completed_evals: int = 0
+    total_evals: int = 0
+    completed_samples: int = 0
+    total_samples: int = 0
 
 
 class JobManager:
@@ -187,11 +236,23 @@ class JobManager:
     def create_job(
         self, benchmarks: list[str], models: list[ModelConfig], settings: EvalSettings
     ) -> Job:
-        """Create a single job for all models."""
+        """Create a single job for all models and write a manifest file."""
         job_id = self.next_job_id()
-        (self.jobs_dir / job_id).mkdir(parents=True, exist_ok=True)
+        job_dir = self.jobs_dir / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+
         evals = {m.model: benchmarks for m in models}
-        return Job(id=job_id, evals=evals, settings=settings)
+        total_evals = len(models) * len(benchmarks)
+
+        manifest = {"evals": evals, "total_evals": total_evals}
+        (job_dir / "job-manifest.json").write_text(json.dumps(manifest, indent=2))
+
+        return Job(
+            id=job_id,
+            evals=evals,
+            settings=settings,
+            total_evals=total_evals,
+        )
 
     def job_dirs(self) -> Iterator[Path]:
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
@@ -200,35 +261,85 @@ class JobManager:
                 yield path
 
     def load_job(self, job_dir: Path) -> Job | None:
-        """Load a job from the filesystem."""
-        eval_files = list(job_dir.glob("**/eval-set.json"))
-        if not eval_files:
-            return None
+        """Load a job from the filesystem using manifest or eval-set fallback."""
+        evals, total_evals = self._load_evals_from_manifest(job_dir)
 
-        evals: dict[str, list[str]] = {}
-        model_dirs: list[Path] = []
-
-        for eval_file in eval_files:
-            parsed = _parse_eval_set(eval_file)
-            if parsed is None:
-                continue
-
-            model, benchmarks = parsed
-            evals[model] = benchmarks
-            model_dirs.append(eval_file.parent)
+        # Fallback for legacy jobs without manifest
+        if not evals:
+            evals, total_evals = self._load_evals_from_eval_sets(job_dir)
 
         if not evals:
             return None
 
+        model_dirs = self._discover_model_dirs(job_dir)
+        if not model_dirs:
+            # No eval logs yet — job is still initializing
+            return Job(
+                id=job_dir.name,
+                evals=evals,
+                created_at=self._job_created_at(job_dir),
+                status="running",
+                total_evals=total_evals,
+            )
+
+        status, completed_evals, _, completed_samples, total_samples = (
+            _aggregate_status_and_progress(model_dirs)
+        )
+
         return Job(
             id=job_dir.name,
             evals=evals,
-            created_at=min(
-                (datetime.fromtimestamp(f.stat().st_mtime) for f in eval_files),
-                default=datetime.now(),
-            ),
-            status=aggregate_status(model_dirs),
+            created_at=self._job_created_at(job_dir),
+            status=status,
+            completed_evals=completed_evals,
+            total_evals=total_evals,
+            completed_samples=completed_samples,
+            total_samples=total_samples,
         )
+
+    def _load_evals_from_manifest(
+        self, job_dir: Path
+    ) -> tuple[dict[str, list[str]], int]:
+        """Load evals from job-manifest.json if it exists."""
+        manifest_path = job_dir / "job-manifest.json"
+        if not manifest_path.exists():
+            return {}, 0
+        data = json.loads(manifest_path.read_text())
+        return data.get("evals", {}), data.get("total_evals", 0)
+
+    def _load_evals_from_eval_sets(
+        self, job_dir: Path
+    ) -> tuple[dict[str, list[str]], int]:
+        """Fallback: scan eval-set.json files for legacy jobs without manifest."""
+        evals: dict[str, list[str]] = {}
+        for eval_file in job_dir.glob("**/eval-set.json"):
+            parsed = _parse_eval_set(eval_file)
+            if parsed is None:
+                continue
+            model, benchmarks = parsed
+            evals[model] = benchmarks
+        total_evals = sum(len(b) for b in evals.values())
+        return evals, total_evals
+
+    def _discover_model_dirs(self, job_dir: Path) -> list[Path]:
+        """Find all model subdirectories that contain eval logs."""
+        model_dirs = []
+        for subdir in job_dir.iterdir():
+            if not subdir.is_dir():
+                continue
+            if list(list_eval_logs(str(subdir))):
+                model_dirs.append(subdir)
+        return model_dirs
+
+    def _job_created_at(self, job_dir: Path) -> datetime:
+        """Determine job creation time from manifest or eval-set files."""
+        manifest_path = job_dir / "job-manifest.json"
+        if manifest_path.exists():
+            return datetime.fromtimestamp(manifest_path.stat().st_mtime)
+        eval_files = list(job_dir.glob("**/eval-set.json"))
+        if not eval_files:
+            return datetime.now()
+        return min(datetime.fromtimestamp(f.stat().st_mtime) for f in eval_files)
 
     def list_jobs(self, limit: int | None = None) -> list[Job]:
         """List jobs, running first, then by recency."""

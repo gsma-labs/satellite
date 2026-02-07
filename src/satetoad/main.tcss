@@ -347,6 +347,10 @@ JobListItem.-running #status { color: #50FA7B; }
 JobListItem.-success #status { color: #6272A4; }
 JobListItem.-cancelled #status { color: #FF5555; }
 JobListItem.-error #status { color: #FF5555; }
+JobListItem.-cancelled Bar > .bar--bar,
+JobListItem.-cancelled Bar > .bar--complete,
+JobListItem.-error Bar > .bar--bar,
+JobListItem.-error Bar > .bar--complete { color: #FF5555; }
 
 /* ============================================
    FORM ELEMENTS
