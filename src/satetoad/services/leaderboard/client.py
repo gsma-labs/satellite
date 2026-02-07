@@ -110,15 +110,12 @@ def merge_leaderboard(
     return combined
 
 
-def _avg_score_column(dataset: dict) -> str:
-    """Return the dataset column name for the average score.
-
-    Checks "avg_score" first, falls back to legacy "tci" for
-    backward compatibility until the HF dataset is updated.
-    """
-    if "avg_score" in dataset:
-        return "avg_score"
-    return "tci"
+def _compute_avg(scores: dict[str, float | None]) -> float | None:
+    """Compute average from individual benchmark scores, ignoring None values."""
+    valid = [v for v in scores.values() if v is not None]
+    if not valid:
+        return None
+    return mean(valid)
 
 
 def _parse_row(
@@ -126,16 +123,17 @@ def _parse_row(
 ) -> LeaderboardEntry:
     raw_model = dataset["model"][row] or "Unknown"
     name, _, provider = raw_model.partition(" (")
-    col = _avg_score_column(dataset)
+
+    scores = {
+        bench_id: _parse_score(dataset[col_name][row])
+        for bench_id, col_name in score_cols.items()
+    }
 
     return LeaderboardEntry(
         model=name,
         provider=provider.rstrip(")") or "Unknown",
-        avg_score=_parse_score(dataset[col][row]),
-        scores={
-            bench_id: _parse_score(dataset[col_name][row])
-            for bench_id, col_name in score_cols.items()
-        },
+        avg_score=_compute_avg(scores),
+        scores=scores,
     )
 
 
