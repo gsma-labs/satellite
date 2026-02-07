@@ -14,6 +14,7 @@ class BenchmarkConfig:
     hf_column: str
     module_path: str
     function_name: str
+    total_samples: int
 
 
 BENCHMARKS: tuple[BenchmarkConfig, ...] = (
@@ -25,6 +26,7 @@ BENCHMARKS: tuple[BenchmarkConfig, ...] = (
         hf_column="teleqna",
         module_path="evals.teleqna.teleqna",
         function_name="teleqna",
+        total_samples=1000,
     ),
     BenchmarkConfig(
         id="telelogs",
@@ -34,6 +36,7 @@ BENCHMARKS: tuple[BenchmarkConfig, ...] = (
         hf_column="telelogs",
         module_path="evals.telelogs.telelogs",
         function_name="telelogs",
+        total_samples=100,
     ),
     BenchmarkConfig(
         id="telemath",
@@ -43,6 +46,7 @@ BENCHMARKS: tuple[BenchmarkConfig, ...] = (
         hf_column="telemath",
         module_path="evals.telemath.telemath",
         function_name="telemath",
+        total_samples=100,
     ),
     BenchmarkConfig(
         id="teletables",
@@ -52,6 +56,7 @@ BENCHMARKS: tuple[BenchmarkConfig, ...] = (
         hf_column="teletables",
         module_path="evals.teletables.teletables",
         function_name="teletables",
+        total_samples=100,
     ),
     BenchmarkConfig(
         id="three_gpp",
@@ -61,6 +66,7 @@ BENCHMARKS: tuple[BenchmarkConfig, ...] = (
         hf_column="3gpp_tsg",
         module_path="evals.three_gpp.three_gpp",
         function_name="three_gpp",
+        total_samples=100,
     ),
 )
 

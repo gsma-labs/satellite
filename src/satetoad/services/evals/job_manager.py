@@ -79,6 +79,31 @@ def extract_accuracy(log: EvalLog) -> tuple[str, str, float] | None:
     return (log.eval.model, task_short_name, accuracy.value)
 
 
+def extract_sample_count(log: EvalLog) -> tuple[str, str, int] | None:
+    """Extract (model, task_name, sample_count) from an eval log."""
+    if not log.eval or not log.eval.task or not log.eval.model:
+        return None
+    if not log.results:
+        return None
+
+    task_short_name = log.eval.task.rsplit("/", 1)[-1]
+    return (log.eval.model, task_short_name, log.results.total_samples)
+
+
+def _load_job_sample_counts(job_dir: str) -> dict[str, dict[str, int]]:
+    """Return {model: {benchmark: sample_count}}."""
+    counts: dict[str, dict[str, int]] = {}
+    for log_path in list_eval_logs(job_dir, recursive=True):
+        log = read_eval_log(log_path, header_only=True)
+        triple = extract_sample_count(log)
+        if triple is None:
+            continue
+
+        model, task, sample_count = triple
+        counts.setdefault(model, {})[task] = sample_count
+    return counts
+
+
 def _load_job_results(job_dir: str) -> dict[str, dict[str, float]]:
     """Return {model: {benchmark: score}}."""
     results: dict[str, dict[str, float]] = {}
@@ -226,6 +251,13 @@ class JobManager:
         if not job_dir.exists():
             return {}
         return _load_job_results(str(job_dir))
+
+    def get_job_sample_counts(self, job_id: str) -> dict[str, dict[str, int]]:
+        """Get sample counts: {model: {benchmark: count}}."""
+        job_dir = self.jobs_dir / job_id
+        if not job_dir.exists():
+            return {}
+        return _load_job_sample_counts(str(job_dir))
 
     def get_job_details(self, job_id: str) -> JobDetails | None:
         """Get aggregated metadata (status, samples, tokens, duration) for a job."""

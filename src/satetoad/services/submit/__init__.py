@@ -27,6 +27,7 @@ GITHUB_TOKEN_ENV_VAR = "GITHUB_TOKEN"
 
 RECOGNIZED_PROVIDERS = frozenset(p["id"] for p in MODEL_PROVIDERS)
 REQUIRED_BENCHMARK_IDS = frozenset(b.id for b in BENCHMARKS)
+REQUIRED_SAMPLE_COUNTS: dict[str, int] = {b.id: b.total_samples for b in BENCHMARKS}
 
 _UNSAFE_CHARS = re.compile(r"[^a-z0-9_-]")
 
@@ -100,15 +101,26 @@ def model_dir_name(provider: str, model_name: str) -> str:
 # ── Eligibility ──────────────────────────────────────────────────────────
 
 
-def is_model_eligible(model: str, scores: dict[str, float]) -> bool:
-    """Check if a model has completed all required benchmarks with valid scores.
+def _has_sufficient_samples(sample_counts: dict[str, int]) -> bool:
+    """Check that every benchmark meets its required sample count."""
+    return all(
+        sample_counts.get(bench_id, 0) >= required
+        for bench_id, required in REQUIRED_SAMPLE_COUNTS.items()
+    )
+
+
+def is_model_eligible(
+    model: str, scores: dict[str, float], sample_counts: dict[str, int]
+) -> bool:
+    """Check if a model has completed all required benchmarks with sufficient samples.
 
     Raises:
         ValueError: If the model string has an unrecognized provider or bad format.
     """
-    # Validates provider/format; raises ValueError on bad input
     _provider, _name = parse_model_identity(model)
-    return REQUIRED_BENCHMARK_IDS.issubset(scores.keys())
+    if not REQUIRED_BENCHMARK_IDS.issubset(scores.keys()):
+        return False
+    return _has_sufficient_samples(sample_counts)
 
 
 def get_eligible_models(
@@ -120,9 +132,11 @@ def get_eligible_models(
         if job.status != "success":
             continue
         results = job_manager.get_job_results(job.id)
+        all_sample_counts = job_manager.get_job_sample_counts(job.id)
         for model, scores in results.items():
+            model_counts = all_sample_counts.get(model, {})
             try:
-                if is_model_eligible(model, scores):
+                if is_model_eligible(model, scores, model_counts):
                     eligible.append((job, model, scores))
             except ValueError:
                 continue
@@ -242,6 +256,7 @@ def _do_submit(client: GitHubClient, preview: SubmitPreview) -> SubmitResult:
 __all__ = [
     "RECOGNIZED_PROVIDERS",
     "REQUIRED_BENCHMARK_IDS",
+    "REQUIRED_SAMPLE_COUNTS",
     "SubmitPreview",
     "SubmitResult",
     "build_submit_preview",

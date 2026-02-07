@@ -12,6 +12,7 @@ from satetoad.services.evals.job_manager import Job
 from satetoad.services.submit import (
     RECOGNIZED_PROVIDERS,
     REQUIRED_BENCHMARK_IDS,
+    REQUIRED_SAMPLE_COUNTS,
     build_submit_preview,
     get_eligible_models,
     is_model_eligible,
@@ -128,29 +129,39 @@ def _all_scores(value: float = 0.85) -> dict[str, float]:
     return {b_id: value for b_id in ALL_BENCH_IDS}
 
 
+def _all_sample_counts() -> dict[str, int]:
+    """Create sample counts at required sizes for all benchmarks."""
+    return {b.id: b.total_samples for b in BENCHMARKS}
+
+
 class TestIsModelEligible:
     """Tests for model eligibility checking."""
 
     def test_eligible_with_all_benchmarks(self) -> None:
-        assert is_model_eligible("openai/gpt-4o", _all_scores())
+        assert is_model_eligible("openai/gpt-4o", _all_scores(), _all_sample_counts())
 
     def test_ineligible_missing_benchmark(self) -> None:
         scores = _all_scores()
         del scores[ALL_BENCH_IDS[0]]
-        assert not is_model_eligible("openai/gpt-4o", scores)
+        assert not is_model_eligible("openai/gpt-4o", scores, _all_sample_counts())
 
     def test_ineligible_unrecognized_provider(self) -> None:
         with pytest.raises(ValueError, match="Unrecognized provider"):
-            is_model_eligible("fakeprovider/model", _all_scores())
+            is_model_eligible("fakeprovider/model", _all_scores(), _all_sample_counts())
 
     def test_ineligible_invalid_model_format(self) -> None:
         with pytest.raises(ValueError, match="Invalid model format"):
-            is_model_eligible("noSlash", _all_scores())
+            is_model_eligible("noSlash", _all_scores(), _all_sample_counts())
 
     def test_required_benchmark_ids_matches_registry(self) -> None:
         """REQUIRED_BENCHMARK_IDS stays in sync with the registry."""
         assert REQUIRED_BENCHMARK_IDS == frozenset(ALL_BENCH_IDS)
         assert len(REQUIRED_BENCHMARK_IDS) == len(BENCHMARKS)
+
+    def test_required_sample_counts_matches_registry(self) -> None:
+        """REQUIRED_SAMPLE_COUNTS stays in sync with the registry."""
+        assert REQUIRED_SAMPLE_COUNTS == {b.id: b.total_samples for b in BENCHMARKS}
+        assert len(REQUIRED_SAMPLE_COUNTS) == len(BENCHMARKS)
 
 
 class FakeJobManager:
@@ -160,15 +171,20 @@ class FakeJobManager:
         self,
         jobs: list[Job],
         results: dict[str, dict[str, dict[str, float]]],
+        sample_counts: dict[str, dict[str, dict[str, int]]] | None = None,
     ) -> None:
         self._jobs = jobs
         self._results = results
+        self._sample_counts = sample_counts or {}
 
     def list_jobs(self) -> list[Job]:
         return self._jobs
 
     def get_job_results(self, job_id: str) -> dict[str, dict[str, float]]:
         return self._results.get(job_id, {})
+
+    def get_job_sample_counts(self, job_id: str) -> dict[str, dict[str, int]]:
+        return self._sample_counts.get(job_id, {})
 
 
 def _make_job(job_id: str, status: str = "success") -> Job:
@@ -188,6 +204,7 @@ class TestGetEligibleModels:
         manager = FakeJobManager(
             jobs=[job],
             results={"job_001": {"openai/gpt-4o": _all_scores()}},
+            sample_counts={"job_001": {"openai/gpt-4o": _all_sample_counts()}},
         )
         eligible = get_eligible_models(manager)
         assert len(eligible) == 1
@@ -210,9 +227,68 @@ class TestGetEligibleModels:
         )
         assert get_eligible_models(manager) == []
 
+    def test_skips_model_with_insufficient_samples(self) -> None:
+        job = _make_job("job_004")
+        insufficient_counts = {b_id: 10 for b_id in ALL_BENCH_IDS}
+        manager = FakeJobManager(
+            jobs=[job],
+            results={"job_004": {"openai/gpt-4o": _all_scores()}},
+            sample_counts={"job_004": {"openai/gpt-4o": insufficient_counts}},
+        )
+        assert get_eligible_models(manager) == []
+
     def test_empty_jobs(self) -> None:
         manager = FakeJobManager(jobs=[], results={})
         assert get_eligible_models(manager) == []
+
+
+class TestSampleCountEligibility:
+    """Tests for sample count validation in eligibility."""
+
+    @pytest.mark.parametrize(
+        ("counts", "expected"),
+        [
+            pytest.param(
+                _all_sample_counts(),
+                True,
+                id="all_full_counts",
+            ),
+            pytest.param(
+                {**_all_sample_counts(), "teleqna": 999},
+                False,
+                id="one_benchmark_short_by_one",
+            ),
+            pytest.param(
+                {b_id: 10 for b_id in ALL_BENCH_IDS},
+                False,
+                id="all_benchmarks_short",
+            ),
+            pytest.param(
+                {**_all_sample_counts(), "teleqna": 1000},
+                True,
+                id="exact_boundary_accepted",
+            ),
+            pytest.param(
+                {**_all_sample_counts(), "teleqna": 1001},
+                True,
+                id="above_required_accepted",
+            ),
+            pytest.param(
+                {**_all_sample_counts(), "teleqna": 0},
+                False,
+                id="zero_samples_one_benchmark",
+            ),
+            pytest.param(
+                {b_id: 100 for b_id in ALL_BENCH_IDS if b_id != "teleqna"},
+                False,
+                id="missing_benchmark_count",
+            ),
+        ],
+    )
+    def test_sample_count_eligibility(
+        self, counts: dict[str, int], expected: bool
+    ) -> None:
+        assert is_model_eligible("openai/gpt-4o", _all_scores(), counts) is expected
 
 
 class TestRecognizedProviders:
