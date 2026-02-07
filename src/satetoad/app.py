@@ -113,19 +113,33 @@ class SatetoadApp(App):
             return
 
         if self._view_process.poll() is not None:
+            self._close_pipes(self._view_process)
             self._view_process = None
             return
 
         # Try graceful termination first (SIGTERM)
         self._view_process.terminate()
         try:
-            self._view_process.wait(timeout=VIEW_SHUTDOWN_TIMEOUT)
+            self._view_process.communicate(timeout=VIEW_SHUTDOWN_TIMEOUT)
         except subprocess.TimeoutExpired:
             # Force kill if graceful shutdown failed
             self._view_process.kill()
-            self._view_process.wait()
+            self._view_process.communicate()
 
+        # Ensure pipes are closed even if communicate() didn't close them
+        self._close_pipes(self._view_process)
         self._view_process = None
+
+    @staticmethod
+    def _close_pipes(process: subprocess.Popen) -> None:
+        """Close stdout/stderr pipes on an already-exited process."""
+        for pipe in (process.stdout, process.stderr):
+            if pipe is None or pipe.closed:
+                continue
+            try:
+                pipe.close()
+            except OSError:
+                pass  # FD already invalidated
 
     def on_unmount(self) -> None:
         """Clean up subprocess when app closes."""

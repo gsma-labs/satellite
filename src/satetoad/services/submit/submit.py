@@ -14,6 +14,10 @@ GITHUB_API_BASE = "https://api.github.com"
 class GitHubError(Exception):
     """Error from GitHub API interaction."""
 
+    def __init__(self, message: str, status_code: int = 0) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
 
 class GitHubClient:
     """HTTP client for GitHub REST API operations."""
@@ -50,7 +54,8 @@ class GitHubClient:
         if response.status_code >= 400:
             message = self._extract_error_message(response)
             raise GitHubError(
-                f"GitHub API error {response.status_code}: {message}"
+                f"GitHub API error {response.status_code}: {message}",
+                status_code=response.status_code,
             )
         if response.status_code == 204:
             return {}
@@ -63,7 +68,13 @@ class GitHubClient:
 
     def has_push_access(self, repo: str) -> bool:
         """Check if the authenticated user can push to the repo."""
-        data = self._request("GET", f"/repos/{repo}")
+        try:
+            data = self._request("GET", f"/repos/{repo}")
+        except GitHubError as exc:
+            # 403 (forbidden) and 404 (not found / hidden) mean no access
+            if exc.status_code in (403, 404):
+                return False
+            raise
         return data.get("permissions", {}).get("push", False)
 
     def ensure_fork(self, repo: str) -> str:

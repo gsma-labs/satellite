@@ -8,6 +8,7 @@ PATTERN: Inline collapsible expansion
 
 from textual.app import ComposeResult
 from textual.containers import VerticalGroup
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import Digits, Label, Static
@@ -175,10 +176,7 @@ class EvalsContainer(VerticalGroup):
 
     def watch_expanded(self, expanded: bool) -> None:
         """React to expansion state changes."""
-        if expanded:
-            self.add_class("-expanded")
-        else:
-            self.remove_class("-expanded")
+        self.set_class(expanded, "-expanded")
 
     def watch_pending_jobs(self, count: int) -> None:
         """React to pending job count changes."""
@@ -186,14 +184,14 @@ class EvalsContainer(VerticalGroup):
         try:
             header_badge = self.query_one("#header-badge", BadgeLabel)
             header_badge.count = count
-        except Exception:
+        except NoMatches:
             pass
 
         # Update view progress badge
         try:
             view_progress = self.query_one("#opt-view-progress", EvalSubOption)
             view_progress.set_badge_count(count)
-        except Exception:
+        except NoMatches:
             pass
 
     def toggle_expanded(self) -> None:

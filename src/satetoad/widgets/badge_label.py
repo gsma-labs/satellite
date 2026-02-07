@@ -71,11 +71,7 @@ class BadgeLabel(Static):
 
     def watch_count(self, new_count: int) -> None:
         """React to count changes - show/hide and trigger pulse."""
-        # Update visibility
-        if new_count > 0:
-            self.add_class("-visible")
-        else:
-            self.remove_class("-visible")
+        self.set_class(new_count > 0, "-visible")
 
         # Pulse if count increased
         if new_count > self._previous_count:

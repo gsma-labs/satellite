@@ -124,16 +124,14 @@ class TabItem(HorizontalGroup):
 
     def watch_active(self, value: bool) -> None:
         """React to active state changes."""
-        if value:
-            self.add_class("-active")
-        else:
-            self.remove_class("-active")
+        self.set_class(value, "-active")
 
     def on_key(self, event: events.Key) -> None:
         """Handle key press - Enter activates, Delete/Backspace closes."""
         if event.key in ("enter", "space"):
             event.stop()
             self.post_message(self.Activated(self._tab_id))
-        elif event.key in ("delete", "backspace") and self._closable:
+            return
+        if event.key in ("delete", "backspace") and self._closable:
             event.stop()
             self.post_message(self.CloseRequested(self._tab_id))

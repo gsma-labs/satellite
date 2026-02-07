@@ -120,11 +120,10 @@ class TabHeader(Horizontal):
         self._tab_order.remove(tab_id)
 
         # If we removed the active tab, switch to previous or first tab
-        if self.active_tab == tab_id:
-            if self._tab_order:
-                self.activate_tab(self._tab_order[-1])
-            else:
-                self.active_tab = None
+        if self.active_tab == tab_id and self._tab_order:
+            self.activate_tab(self._tab_order[-1])
+        if self.active_tab == tab_id and not self._tab_order:
+            self.active_tab = None
 
         self.post_message(self.TabClosed(tab_id))
         return True

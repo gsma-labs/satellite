@@ -11,6 +11,7 @@ from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical, HorizontalGroup
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
@@ -111,7 +112,7 @@ class EvalsOptionItem(HorizontalGroup):
         """Get the badge widget if it exists."""
         try:
             return self.query_one("#badge", BadgeLabel)
-        except Exception:
+        except NoMatches:
             return None
 
     def set_badge_count(self, count: int) -> None:

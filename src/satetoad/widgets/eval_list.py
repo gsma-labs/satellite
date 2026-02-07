@@ -280,14 +280,14 @@ class EvalList(containers.VerticalGroup, can_focus=True):
     def action_run_selected(self) -> None:
         """Trigger run action with selected items."""
         selected_list = self.get_selected()
-        if selected_list:
-            self.post_message(self.RunRequested(self, selected_list))
-        else:
+        if not selected_list:
             self.notify(
                 "Please select at least one benchmark",
                 title="No Selection",
                 severity="warning",
             )
+            return
+        self.post_message(self.RunRequested(self, selected_list))
 
     def select_all(self) -> None:
         """Select all items."""
