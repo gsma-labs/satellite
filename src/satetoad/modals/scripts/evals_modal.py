@@ -221,9 +221,9 @@ class EvalsModal(ModalScreen[str | None]):
             if i == self.highlighted:
                 item.add_class("-highlight")
                 item.query_one("#cursor").update("►")
-            else:
-                item.remove_class("-highlight")
-                item.query_one("#cursor").update(" ")
+                continue
+            item.remove_class("-highlight")
+            item.query_one("#cursor").update(" ")
 
     def watch_highlighted(self, value: int) -> None:
         """React to highlight changes."""
@@ -244,10 +244,14 @@ class EvalsModal(ModalScreen[str | None]):
         if event.key in ("down", "j"):
             self.highlighted = min(self.highlighted + 1, 1)
             event.stop()
-        elif event.key in ("up", "k"):
+            return
+
+        if event.key in ("up", "k"):
             self.highlighted = max(self.highlighted - 1, 0)
             event.stop()
-        elif event.key in ("enter", "space"):
+            return
+
+        if event.key in ("enter", "space"):
             options = ["run-evals", "view-progress"]
             self.dismiss(options[self.highlighted])
             event.stop()

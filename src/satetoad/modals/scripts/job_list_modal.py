@@ -31,9 +31,10 @@ class JobListItem(HorizontalGroup):
     """Single job row in the job list.
 
     Layout:
-    +----------------------------------------+
-    | jobs_1     openai/gpt-4o  TeleQnA, ... |
-    +----------------------------------------+
+    +----------------------------------------------+
+    | ● job_20250207  ████████░░░░░░░░░░░░░░░  ✕  |
+    +----------------------------------------------+
+    status icon + job ID + progress bar + cancel button (running only)
     """
 
     DEFAULT_CSS = """

@@ -39,7 +39,7 @@ def _task_name(log: EvalLog) -> str:
     return log.eval.task.rsplit("/", 1)[-1]
 
 
-def _aggregate_status_and_progress(
+def _aggregate_progress(
     model_dirs: Iterable[Path],
 ) -> tuple[JobStatus, int, int, int, int]:
     """Return (status, completed_evals, total_evals, completed_samples, total_samples).
@@ -283,7 +283,7 @@ class JobManager:
             )
 
         status, completed_evals, _, completed_samples, total_samples = (
-            _aggregate_status_and_progress(model_dirs)
+            _aggregate_progress(model_dirs)
         )
 
         return Job(
