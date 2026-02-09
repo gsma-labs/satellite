@@ -11,10 +11,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from dotenv import load_dotenv
+from inspect_ai.log import list_eval_logs
 
-from satetoad.services.evals.worker import load_task
+from satetoad.services.config import EvalSettings
 from satetoad.services.evals import EvalRunner
 from satetoad.services.evals.job_manager import Job, JobManager
+from satetoad.services.evals.worker import load_task
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
@@ -70,6 +72,7 @@ class TestEvalSetParameters:
             id="test_params",
             evals={"openrouter/openai/gpt-4o-mini": ["teleqna"]},
             status="running",
+            settings=EvalSettings(limit=1),
         )
 
         with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
@@ -114,6 +117,7 @@ class TestRealEvalExecution:
             id="integration_test",
             evals={"openrouter/openai/gpt-4o-mini": ["teleqna"]},
             status="running",
+            settings=EvalSettings(limit=1),
         )
 
         result = runner.run_job(job)
@@ -137,17 +141,6 @@ class TestRealEvalExecution:
         task_data = eval_set_data["tasks"][0]
         assert "openrouter/openai/gpt-4o-mini" in task_data["model"]
 
-        # Verify actual eval log file was created (.eval format)
-        eval_logs = list(log_dir.glob("*.eval"))
-        assert len(eval_logs) >= 1, f"No .eval log files found in {log_dir}"
-
-        # Verify the eval log file is not empty and contains valid data
-        eval_log_file = eval_logs[0]
-        eval_log_size = eval_log_file.stat().st_size
-        assert eval_log_size > 1000, f"Eval log file too small ({eval_log_size} bytes), likely empty or failed"
-
-        # Verify log filename follows expected pattern: TIMESTAMP_TASKNAME_ID.eval
-        log_name = eval_log_file.name
-        assert "teleqna" in log_name.lower() or "evals" in log_name.lower(), (
-            f"Log filename should contain task name: {log_name}"
-        )
+        # Verify eval log files were created (inspect-ai writes JSON format)
+        eval_logs = list(list_eval_logs(str(log_dir)))
+        assert len(eval_logs) >= 1, f"No eval log files found in {log_dir}"

@@ -14,8 +14,10 @@ from typing import NamedTuple
 
 from satetoad.services.config import EvalSettings
 from satetoad.services.evals.job_manager import Job
+from satetoad.services.evals.worker import mark_started_logs_cancelled
 
 CANCELLED_EXIT_CODE = 2
+CANCELLED_MARKER = "cancelled"
 WORKER_CMD = ["uv", "run", "python", "-m", "satetoad.services.evals.worker"]
 
 
@@ -43,25 +45,65 @@ class EvalRunner:
         self._cancelled_jobs: set[str] = set()
 
     def cancel_job(self, job_id: str) -> None:
-        """Cancel a running job by sending SIGINT to its subprocess.
+        """Cancel a running job by signalling its entire process group.
 
-        Safe to call for unknown or already-finished jobs (no-op).
+        Sends SIGINT immediately, then escalates to SIGTERM/SIGKILL
+        in a background thread. Safe to call for unknown or already-finished
+        jobs (no-op).
         """
         with self._lock:
             self._cancelled_jobs.add(job_id)
             process = self._active_processes.get(job_id)
 
+        self._write_cancelled_marker(job_id)
+
         if process is None:
             return
+        if process.poll() is not None:
+            return
 
-        # SIGINT triggers KeyboardInterrupt in the worker's signal handler
-        if process.poll() is None:
-            os.kill(process.pid, signal.SIGINT)
+        self._terminate_process_tree(process)
+
+    def _terminate_process_tree(self, process: subprocess.Popen[str]) -> None:
+        """Send SIGINT to process group, escalate to SIGTERM/SIGKILL."""
+        pgid = os.getpgid(process.pid)
+        os.killpg(pgid, signal.SIGINT)
+
+        def _escalate() -> None:
+            try:
+                process.wait(timeout=5)
+                return
+            except subprocess.TimeoutExpired:
+                pass
+
+            try:
+                os.killpg(pgid, signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                return
+
+            try:
+                process.wait(timeout=3)
+                return
+            except subprocess.TimeoutExpired:
+                pass
+
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
+
+        threading.Thread(target=_escalate, daemon=True).start()
 
     def _is_cancelled(self, job_id: str) -> bool:
         """Check if a job has been marked for cancellation."""
         with self._lock:
             return job_id in self._cancelled_jobs
+
+    def _write_cancelled_marker(self, job_id: str) -> None:
+        """Write a marker file so load_job() knows this job was cancelled."""
+        marker = self.jobs_dir / job_id / CANCELLED_MARKER
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.touch()
 
     def run_job(self, job: Job) -> EvalResult:
         """Run benchmarks for all models in a job. Fails fast on first error."""
@@ -126,6 +168,7 @@ class EvalRunner:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            start_new_session=True,
         )
 
         with self._lock:
@@ -138,6 +181,7 @@ class EvalRunner:
                 self._active_processes.pop(job_id, None)
 
         if self._is_cancelled(job_id) or process.returncode == CANCELLED_EXIT_CODE:
+            mark_started_logs_cancelled(str(log_dir))
             return EvalResult(False, "Cancelled", cancelled=True)
 
         if process.returncode != 0:

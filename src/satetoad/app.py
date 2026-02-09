@@ -7,10 +7,10 @@ This is the main application entry point. It demonstrates:
 """
 
 import atexit
+import os
 import signal
 import subprocess
 from pathlib import Path
-from types import FrameType
 
 from textual.app import App
 from textual.binding import Binding
@@ -65,10 +65,6 @@ class SatetoadApp(App):
         atexit.register(self._cleanup_subprocess)
         self._atexit_registered = True
 
-        # Register signal handlers for graceful termination
-        signal.signal(signal.SIGTERM, self._signal_handler)
-        signal.signal(signal.SIGINT, self._signal_handler)
-
     def on_mount(self) -> None:
         """Push the main screen and launch inspect view when the app mounts."""
         self.push_screen(MainScreen())
@@ -100,12 +96,24 @@ class SatetoadApp(App):
         try:
             self._view_process = subprocess.Popen(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
+                start_new_session=True,
             )
-        except (FileNotFoundError, OSError, subprocess.SubprocessError):
-            pass  # Silently fail if inspect view can't launch
+        except (FileNotFoundError, OSError, subprocess.SubprocessError) as exc:
+            self.notify(f"Could not launch inspect view: {exc}", severity="warning")
+            return
+
+        self.set_timer(1.0, self._check_view_health)
+
+    def _check_view_health(self) -> None:
+        """Verify inspect view process is still alive after launch."""
+        if self._view_process is None:
+            return
+        if self._view_process.poll() is not None:
+            self.notify("Inspect view exited unexpectedly", severity="warning")
+            self._view_process = None
 
     def _stop_view_process(self) -> None:
         """Stop the inspect view subprocess with graceful shutdown."""
@@ -113,46 +121,44 @@ class SatetoadApp(App):
             return
 
         if self._view_process.poll() is not None:
-            self._close_pipes(self._view_process)
             self._view_process = None
             return
 
-        # Try graceful termination first (SIGTERM)
-        self._view_process.terminate()
-        try:
-            self._view_process.communicate(timeout=VIEW_SHUTDOWN_TIMEOUT)
-        except subprocess.TimeoutExpired:
-            # Force kill if graceful shutdown failed
-            self._view_process.kill()
-            self._view_process.communicate()
+        self._signal_process_group(signal.SIGTERM)
+        if not self._wait_for_exit():
+            self._signal_process_group(signal.SIGKILL)
+            self._view_process.wait()
 
-        # Ensure pipes are closed even if communicate() didn't close them
-        self._close_pipes(self._view_process)
         self._view_process = None
 
-    @staticmethod
-    def _close_pipes(process: subprocess.Popen) -> None:
-        """Close stdout/stderr pipes on an already-exited process."""
-        for pipe in (process.stdout, process.stderr):
-            if pipe is None or pipe.closed:
-                continue
-            try:
-                pipe.close()
-            except OSError:
-                pass  # FD already invalidated
+    def _signal_process_group(self, sig: signal.Signals) -> None:
+        """Send a signal to the view process group, falling back to direct signal."""
+        try:
+            os.killpg(os.getpgid(self._view_process.pid), sig)
+        except (ProcessLookupError, PermissionError, OSError):
+            if sig == signal.SIGTERM:
+                self._view_process.terminate()
+            if sig == signal.SIGKILL:
+                self._view_process.kill()
+
+    def _wait_for_exit(self) -> bool:
+        """Wait for the view process to exit within the shutdown timeout.
+
+        Returns True if the process exited, False if it timed out.
+        """
+        try:
+            self._view_process.wait(timeout=VIEW_SHUTDOWN_TIMEOUT)
+            return True
+        except subprocess.TimeoutExpired:
+            return False
 
     def on_unmount(self) -> None:
         """Clean up subprocess when app closes."""
         self._stop_view_process()
 
     def _cleanup_subprocess(self) -> None:
-        """Cleanup subprocess - called by atexit and signal handlers."""
+        """Cleanup subprocess - called by atexit handler."""
         self._stop_view_process()
-
-    def _signal_handler(self, signum: int, frame: FrameType | None) -> None:
-        """Handle SIGTERM/SIGINT for graceful cleanup."""
-        self._cleanup_subprocess()
-        raise SystemExit(0)
 
     def watch_terminal_title(self, title: str) -> None:
         """Update terminal tab title when title changes."""

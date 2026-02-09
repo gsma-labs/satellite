@@ -1,6 +1,7 @@
 # Satetoad TUI Demo - VHS Tape File
 # Run with: vhs scripts/demo.tape
 # Output: docs/demo.gif (and docs/demo.mp4)
+# Duration: ~30-35s (fast-paced showcase)
 
 Require uv
 
@@ -14,8 +15,8 @@ Set FontFamily "JetBrains Mono"
 Set Width 1400
 Set Height 850
 Set Framerate 24
-Set PlaybackSpeed 0.8
-Set TypingSpeed 60ms
+Set PlaybackSpeed 1.2
+Set TypingSpeed 35ms
 Set Padding 12
 Set WindowBar Colorful
 Set WindowBarSize 40
@@ -30,120 +31,112 @@ Show
 
 Type "uv run python -m satetoad"
 Enter
-Sleep 4s
+Sleep 3s
 
 # ─── Show the main screen ────────────────────
-# Pause to let viewers see the landing page
-Sleep 3s
+Sleep 1.5s
 
-# ─── Help overlay (F1) ───────────────────────
+# ─── Help overlay (?) ─────────────────────────
 Type@200ms "?"
-Sleep 3s
+Sleep 1.5s
 
 # ─── Navigate action boxes with arrow keys ───
 Down
-Sleep 800ms
+Sleep 250ms
 Down
-Sleep 800ms
+Sleep 250ms
 Up
-Sleep 800ms
+Sleep 250ms
 Up
-Sleep 800ms
+Sleep 400ms
 
 # ─── Open Evals modal (key 1) ────────────────
 Type "1"
-Sleep 2s
+Sleep 1.5s
 
 # Toggle a benchmark off with Space
 Down
-Sleep 500ms
+Sleep 300ms
 Down
-Sleep 500ms
+Sleep 300ms
 Space
-Sleep 1s
+Sleep 800ms
 
 # Toggle it back on
 Space
-Sleep 1s
+Sleep 800ms
 
 # Close Evals modal
 Escape
-Sleep 2s
+Sleep 1s
 
 # ─── Open Leaderboard modal (key 2) ──────────
 Type "2"
-Sleep 4s
+Sleep 2s
 
-# Navigate leaderboard table
+# Scroll the leaderboard table
 Down
-Sleep 400ms
+Sleep 250ms
 Down
-Sleep 400ms
+Sleep 250ms
 Down
-Sleep 400ms
+Sleep 250ms
 Up
 Sleep 400ms
 
 # Close Leaderboard
 Escape
-Sleep 2s
+Sleep 1s
 
 # ─── Open Submit modal (key 3) ───────────────
 Type "3"
-Sleep 2s
+Sleep 1.5s
 
 # Fill in the form
 Tab
-Sleep 300ms
-Type@100ms "GPT-4o Evaluation"
+Sleep 200ms
+Type@60ms "GPT-4o Evaluation"
 Tab
-Sleep 300ms
-Type@100ms "Open Telco"
+Sleep 200ms
+Type@60ms "Open Telco"
 Tab
-Sleep 300ms
-Type@100ms "Benchmark run v1"
-Sleep 2s
+Sleep 200ms
+Type@60ms "Benchmark run v1"
+Sleep 1.5s
 
 # Close without submitting
 Escape
-Sleep 2s
+Sleep 1s
 
 # ─── Open Lab APIs model config (key 4) ──────
 Type "4"
-Sleep 2s
+Sleep 1.5s
 
-# Navigate the form
+# Tab through the form fields
 Tab
-Sleep 500ms
+Sleep 300ms
 Tab
-Sleep 500ms
+Sleep 300ms
 Tab
-Sleep 500ms
+Sleep 300ms
 
-Sleep 2s
+Sleep 1s
 
 # Close model config
 Escape
-Sleep 2s
-
-# ─── Open Env Vars (key c) ───────────────────
-Type "c"
-Sleep 2s
-
-# Close env vars
-Escape
-Sleep 2s
-
-# ─── Navigate to agents section ──────────────
 Sleep 1s
 
-# Launch an agent (key 9 = Claude Code)
-Type "9"
-Sleep 3s
+# ─── Open Cloud APIs (key 5) ─────────────────
+Type "5"
+Sleep 1.5s
+
+# Close Cloud APIs
+Escape
+Sleep 1s
 
 # ─── Final pause on main screen ──────────────
-Sleep 2s
+Sleep 1s
 
 # ─── Quit ─────────────────────────────────────
 Type "q"
-Sleep 2s
+Sleep 1.5s

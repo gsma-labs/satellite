@@ -1,17 +1,9 @@
 """Tests for zombie process detection and prevention.
 
-This test suite verifies that subprocess cleanup occurs correctly under
-various scenarios, including:
-1. Normal app exit (on_unmount called)
-2. Force-kill scenarios (SIGKILL - on_unmount NOT called)
-3. SIGTERM/SIGINT handling during operation
-4. Timer cleanup in widgets
-5. Multiple app instances without proper cleanup
-6. Crash during operation (exception in widget)
+Verifies subprocess cleanup under various scenarios: normal exit,
+force-kill, signal handling, timer cleanup, multiple instances, and crashes.
 
-IMPORTANT: Some tests spawn REAL subprocesses to properly detect zombie
-conditions. These tests are marked with @pytest.mark.slow and may need
-special CI configuration.
+Some tests spawn REAL subprocesses and are marked with @pytest.mark.slow.
 """
 
 import os
@@ -25,18 +17,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-# ============================================================================
-# Fixtures
-# ============================================================================
-
-
 @pytest.fixture
 def mock_popen_for_zombie() -> Generator[tuple[MagicMock, MagicMock], None, None]:
-    """Mock Popen that tracks cleanup method calls.
-
-    Extends the base mock_popen to track whether terminate/kill/wait
-    were called before the test exits.
-    """
+    """Mock Popen that tracks cleanup method calls."""
     with patch("satetoad.app.subprocess.Popen") as popen_mock:
         process = MagicMock()
         process.pid = 99999
@@ -60,15 +43,15 @@ def mock_popen_for_zombie() -> Generator[tuple[MagicMock, MagicMock], None, None
 def real_long_running_process(tmp_path: Path) -> Generator[subprocess.Popen, None, None]:
     """Spawn a real subprocess that sleeps indefinitely.
 
-    Used for testing real zombie detection. Cleans up after test.
+    Cleans up after test regardless of outcome.
     """
     script = tmp_path / "sleeper.py"
     script.write_text("import time; time.sleep(3600)")
 
     proc = subprocess.Popen(
         [sys.executable, str(script)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     yield proc
 
@@ -77,37 +60,19 @@ def real_long_running_process(tmp_path: Path) -> Generator[subprocess.Popen, Non
         proc.wait()
 
 
-# ============================================================================
-# Test Class: Subprocess Cleanup Without on_unmount
-# ============================================================================
-
-
 class TestZombieSubprocessOnForceKill:
-    """Tests verifying subprocess cleanup via atexit handlers.
-
-    These tests FAIL until atexit handlers are added to app.py.
-    The fix: register cleanup in atexit so it runs even without on_unmount.
-    """
+    """Tests verifying subprocess cleanup via atexit handlers."""
 
     def test_atexit_handler_registered_on_app_init(
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """App should register atexit handler for subprocess cleanup.
-
-        BUG: Currently no atexit handler is registered.
-        FIX: Add atexit.register(self._cleanup) in __init__.
-        """
-        import atexit
-
+        """App should register atexit handler for subprocess cleanup."""
         with patch("satetoad.app.MainScreen"):
             from satetoad.app import SatetoadApp
 
             app = SatetoadApp()
-            app._launch_inspect_view()
 
-            # Check if app registered an atexit handler
-            # This requires the app to store a reference we can check
             has_atexit = hasattr(app, "_atexit_registered") and app._atexit_registered
 
             assert has_atexit, (
@@ -119,33 +84,28 @@ class TestZombieSubprocessOnForceKill:
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """Subprocess properly terminated when on_unmount IS called.
-
-        This is the PASSING case - demonstrates correct behavior.
-        """
+        """on_unmount kills the entire process group via os.killpg()."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"):
+        with patch("satetoad.app.MainScreen"), \
+             patch("satetoad.app.os.killpg") as mock_killpg, \
+             patch("satetoad.app.os.getpgid", return_value=99999):
             from satetoad.app import SatetoadApp
 
             app = SatetoadApp()
+            app.set_timer = MagicMock()
             app._launch_inspect_view()
 
             app.on_unmount()
 
-            assert process.terminate_called
-
-
-# ============================================================================
-# Test Class: Signal Handling Edge Cases
-# ============================================================================
+            mock_killpg.assert_called_once_with(99999, signal.SIGTERM)
 
 
 class TestSignalHandlingZombies:
-    """Tests for signal handler registration.
+    """Tests verifying app does NOT register custom signal handlers.
 
-    These tests FAIL until signal handlers are added to app.py.
-    The fix: register SIGTERM/SIGINT handlers that call cleanup.
+    Custom handlers conflict with Textual's signal handling. Cleanup
+    is handled by on_unmount and the atexit handler instead.
     """
 
     @pytest.mark.parametrize(
@@ -155,16 +115,12 @@ class TestSignalHandlingZombies:
             pytest.param(signal.SIGINT, "SIGINT", id="sigint_ctrl_c"),
         ],
     )
-    def test_signal_handler_registered(
+    def test_no_custom_signal_handler_registered(
         self,
         signal_num: signal.Signals,
         signal_name: str,
     ) -> None:
-        """App should register signal handlers for graceful cleanup.
-
-        BUG: Currently no signal handlers are registered.
-        FIX: Add signal.signal(SIGTERM, cleanup_handler) in __init__.
-        """
+        """App init must not change the signal handler for SIGTERM/SIGINT."""
         original_handler = signal.getsignal(signal_num)
 
         with patch("satetoad.app.MainScreen"):
@@ -174,34 +130,17 @@ class TestSignalHandlingZombies:
 
         current_handler = signal.getsignal(signal_num)
 
-        # App should have registered a custom handler
-        assert current_handler != original_handler, (
-            f"App should register {signal_name} handler for subprocess cleanup. "
-            f"Add signal.signal({signal_name}, cleanup_handler) to fix."
+        assert current_handler == original_handler, (
+            f"App should NOT register custom {signal_name} handler. "
+            f"Custom handlers conflict with Textual's signal handling."
         )
-
-        # Restore original handler for test isolation
-        signal.signal(signal_num, original_handler)
-
-
-# ============================================================================
-# Test Class: Timer Cleanup in JuliaSet Widget
-# ============================================================================
 
 
 class TestJuliaSetTimerLeaks:
-    """Tests for timer cleanup in JuliaSet widget.
-
-    These tests FAIL until on_unmount is added to JuliaSet.
-    The fix: add on_unmount() that stops the zoom_timer.
-    """
+    """Tests for timer cleanup in JuliaSet widget."""
 
     def test_julia_set_has_on_unmount(self) -> None:
-        """JuliaSet widget should have on_unmount for timer cleanup.
-
-        BUG: JuliaSet creates timers but has no on_unmount().
-        FIX: Add on_unmount() that calls self.zoom_timer.stop().
-        """
+        """JuliaSet widget should have on_unmount for timer cleanup."""
         from satetoad.widgets.julia_set import JuliaSet
 
         has_custom_unmount = "on_unmount" in JuliaSet.__dict__
@@ -227,7 +166,7 @@ class TestJuliaSetTimerLeaks:
                 yield JuliaSet(id="julia")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             julia = app.query_one("#julia", JuliaSet)
 
             assert julia.zoom_timer is None
@@ -266,7 +205,7 @@ class TestJuliaSetTimerLeaks:
                 yield JuliaSet(id="julia")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             julia = app.query_one("#julia", JuliaSet)
 
             down_event = Click(
@@ -306,13 +245,7 @@ class TestJuliaSetTimerLeaks:
 
     @pytest.mark.asyncio
     async def test_timer_stopped_on_widget_removal(self) -> None:
-        """Timer should be stopped when widget is removed during zoom.
-
-        BUG: Timer leaks if widget removed while zooming.
-        FIX: Add on_unmount() to JuliaSet that stops the timer.
-        """
-        from unittest.mock import MagicMock
-
+        """Timer is stopped when widget is removed during active zoom."""
         from textual.app import App, ComposeResult
         from textual.events import Click
 
@@ -323,7 +256,7 @@ class TestJuliaSetTimerLeaks:
                 yield JuliaSet(id="julia")
 
         app = TestApp()
-        async with app.run_test() as pilot:
+        async with app.run_test():
             julia = app.query_one("#julia", JuliaSet)
 
             event = Click(
@@ -363,93 +296,68 @@ class TestJuliaSetTimerLeaks:
             )
 
 
-# ============================================================================
-# Test Class: Multiple App Instances
-# ============================================================================
-
-
 class TestMultipleAppInstancesZombies:
-    """Tests for singleton pattern to prevent multiple instances.
-
-    These tests FAIL until singleton/PID file pattern is added.
-    The fix: use PID file or singleton to prevent multiple instances.
-    """
+    """Tests for singleton pattern ensuring previous instance cleanup."""
 
     def test_second_app_instance_should_fail_or_cleanup_first(
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """Second app instance should either fail or cleanup first instance.
-
-        BUG: Multiple app instances create orphaned subprocesses.
-        FIX: Use PID file to detect existing instance, or cleanup on new instance.
-        """
+        """Second app instance cleans up first via os.killpg()."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"):
+        with patch("satetoad.app.MainScreen"), \
+             patch("satetoad.app.os.killpg") as mock_killpg, \
+             patch("satetoad.app.os.getpgid", return_value=99999):
             from satetoad.app import SatetoadApp
 
             app1 = SatetoadApp()
+            app1.set_timer = MagicMock()
             app1._launch_inspect_view()
 
             first_call_count = popen_mock.call_count
             assert first_call_count == 1
 
-            # Creating second instance should either:
-            # 1. Raise an error (singleton pattern), or
-            # 2. Terminate the first instance's subprocess
             app2 = SatetoadApp()
+            app2.set_timer = MagicMock()
             app2._launch_inspect_view()
 
-            # First subprocess should have been terminated
-            assert process.terminate_called, (
-                "First app's subprocess should be terminated when second app starts. "
-                "Add singleton pattern or cleanup previous instance on startup."
-            )
+            mock_killpg.assert_any_call(99999, signal.SIGTERM)
 
     def test_launch_view_kills_existing_process(
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """App._launch_view kills existing process before new one.
-
-        This is a GOOD behavior - prevents zombies from the same app.
-        """
+        """_launch_view kills existing process group before spawning a new one."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"):
+        with patch("satetoad.app.MainScreen"), \
+             patch("satetoad.app.os.killpg") as mock_killpg, \
+             patch("satetoad.app.os.getpgid", return_value=99999):
             from satetoad.app import SatetoadApp
 
-            app = SatetoadApp()
-            app._launch_view(Path("/tmp/logs1"))
-            first_process = app._view_process
+            # Clear singleton to avoid cross-test interference
+            SatetoadApp._instance = None
 
+            app = SatetoadApp()
+            app.set_timer = MagicMock()
+            app._launch_view(Path("/tmp/logs1"))
+
+            mock_killpg.reset_mock()
             app._launch_view(Path("/tmp/logs2"))
 
-            first_process.terminate.assert_called_once()
-
-
-# ============================================================================
-# Test Class: Real Subprocess Zombie Detection
-# ============================================================================
+            mock_killpg.assert_called_once_with(99999, signal.SIGTERM)
 
 
 @pytest.mark.slow
 class TestRealSubprocessZombies:
-    """Tests using REAL subprocesses to detect actual zombie conditions.
-
-    These tests are slower and require special handling in CI.
-    Mark with @pytest.mark.slow for optional execution.
-    """
+    """Tests using real subprocesses to detect actual zombie conditions."""
 
     def test_real_subprocess_becomes_orphan(
         self,
         real_long_running_process: subprocess.Popen,
     ) -> None:
-        """Demonstrates a real orphaned process scenario.
-
-        Uses a real subprocess to verify detection mechanisms.
-        """
+        """Real subprocess remains running and detectable via os.kill()."""
         proc = real_long_running_process
         pid = proc.pid
 
@@ -487,10 +395,7 @@ class TestRealSubprocessZombies:
         self,
         real_long_running_process: subprocess.Popen,
     ) -> None:
-        """Detect zombie processes using psutil.
-
-        This pattern can be used in CI to detect leaked processes.
-        """
+        """Terminated process transitions from running to not-running in psutil."""
         try:
             import psutil
         except ImportError:
@@ -510,32 +415,21 @@ class TestRealSubprocessZombies:
         assert not ps_proc.is_running()
 
 
-# ============================================================================
-# Test Class: Crash During Operation
-# ============================================================================
-
-
 class TestCrashDuringOperation:
-    """Tests for cleanup after crashes.
-
-    These tests verify atexit handlers ensure cleanup even on exceptions.
-    """
+    """Tests verifying atexit handlers ensure cleanup even on exceptions."""
 
     def test_atexit_ensures_cleanup_on_crash(
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """Atexit handler should ensure cleanup even after exceptions.
-
-        BUG: Exception in widget prevents cleanup, leaving zombie process.
-        FIX: atexit handler ensures cleanup runs regardless of exceptions.
-        """
+        """Atexit handler remains registered even after exceptions."""
         popen_mock, process = mock_popen_for_zombie
 
         with patch("satetoad.app.MainScreen"):
             from satetoad.app import SatetoadApp
 
             app = SatetoadApp()
+            app.set_timer = MagicMock()
             app._launch_inspect_view()
 
             # Simulate crash - exception raised
@@ -544,8 +438,6 @@ class TestCrashDuringOperation:
             except RuntimeError:
                 pass
 
-            # Even without on_unmount, atexit should have registered cleanup
-            # We can't easily test atexit directly, so check if app has the mechanism
             has_atexit = hasattr(app, "_atexit_registered") and app._atexit_registered
 
             assert has_atexit, (
@@ -555,11 +447,7 @@ class TestCrashDuringOperation:
 
     @pytest.mark.asyncio
     async def test_exception_in_compose_textual_handles_cleanup(self) -> None:
-        """Textual properly calls on_unmount even when compose raises.
-
-        This is GOOD behavior - Textual handles cleanup properly.
-        This test verifies Textual's cleanup is robust (should PASS).
-        """
+        """Textual calls on_unmount even when compose raises."""
         from textual.app import App, ComposeResult
 
         class CrashingApp(App):
@@ -582,11 +470,6 @@ class TestCrashDuringOperation:
         assert CrashingApp.cleanup_called
 
 
-# ============================================================================
-# Test Class: App Stop View Process Edge Cases
-# ============================================================================
-
-
 class TestAppStopViewProcessEdgeCases:
     """Edge cases in app._stop_view_process() that could lead to zombies."""
 
@@ -594,43 +477,45 @@ class TestAppStopViewProcessEdgeCases:
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """Process is killed if terminate times out.
-
-        This is the fallback path - subprocess ignores SIGTERM,
-        so we escalate to SIGKILL.
-        """
+        """SIGTERM timeout escalates to SIGKILL via os.killpg."""
         popen_mock, process = mock_popen_for_zombie
-        # First wait (with timeout) raises, second wait (after kill) succeeds
         process.wait.side_effect = [
             subprocess.TimeoutExpired(cmd="test", timeout=5),
             None,
         ]
 
-        with patch("satetoad.app.MainScreen"):
+        with patch("satetoad.app.MainScreen"), \
+             patch("satetoad.app.os.killpg") as mock_killpg, \
+             patch("satetoad.app.os.getpgid", return_value=99999):
             from satetoad.app import SatetoadApp
 
+            # Clear singleton to avoid cross-test interference
+            SatetoadApp._instance = None
+
             app = SatetoadApp()
+            app.set_timer = MagicMock()
             app._launch_view(Path("/tmp/logs"))
 
             app._stop_view_process()
 
-            process.terminate.assert_called_once()
-            process.kill.assert_called_once()
+            assert mock_killpg.call_count == 2
+            mock_killpg.assert_any_call(99999, signal.SIGTERM)
+            mock_killpg.assert_any_call(99999, signal.SIGKILL)
 
     def test_stop_view_sets_process_to_none(
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """_stop_view_process() clears the process reference.
-
-        Important for preventing double-cleanup attempts.
-        """
+        """_stop_view_process() clears the reference to prevent double-cleanup."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"):
+        with patch("satetoad.app.MainScreen"), \
+             patch("satetoad.app.os.killpg"), \
+             patch("satetoad.app.os.getpgid", return_value=99999):
             from satetoad.app import SatetoadApp
 
             app = SatetoadApp()
+            app.set_timer = MagicMock()
             app._launch_view(Path("/tmp/logs"))
             assert app._view_process is not None
 
@@ -642,20 +527,21 @@ class TestAppStopViewProcessEdgeCases:
         self,
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
-        """Calling _stop_view_process() multiple times is safe.
-
-        No crash or error on repeated calls.
-        """
+        """Repeated _stop_view_process() calls are safe and only signal once."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"):
+        with patch("satetoad.app.MainScreen"), \
+             patch("satetoad.app.os.killpg") as mock_killpg, \
+             patch("satetoad.app.os.getpgid", return_value=99999):
             from satetoad.app import SatetoadApp
 
             app = SatetoadApp()
+            app.set_timer = MagicMock()
             app._launch_view(Path("/tmp/logs"))
 
             app._stop_view_process()
             app._stop_view_process()
             app._stop_view_process()
 
-            assert process.terminate.call_count == 1
+            # killpg called once for SIGTERM on first stop only
+            mock_killpg.assert_called_once_with(99999, signal.SIGTERM)
