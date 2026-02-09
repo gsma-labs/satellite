@@ -122,6 +122,20 @@ class TestRunEvalSetSubprocess:
             call_kwargs = mock_popen.call_args[1]
             assert call_kwargs["text"] is True
 
+    def test_starts_subprocess_in_new_session(self, tmp_path: Path) -> None:
+        """Subprocess runs in its own session for process-group cancellation."""
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        runner = EvalRunner(tmp_path)
+
+        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+            mock_popen.return_value = _make_mock_popen()
+
+            runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
+
+            call_kwargs = mock_popen.call_args[1]
+            assert call_kwargs["start_new_session"] is True
+
     def test_default_settings_have_no_limit(self) -> None:
         """EvalSettings() defaults to limit=None (run all samples)."""
         settings = EvalSettings()

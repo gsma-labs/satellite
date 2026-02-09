@@ -13,6 +13,7 @@ from satetoad.services.config import EvalSettings, ModelConfig
 JobStatus = Literal["running", "success", "error", "cancelled"]
 
 DEFAULT_JOBS_DIR = PACKAGE_ROOT / "jobs"
+CANCELLED_MARKER = "cancelled"
 
 STATUS_PRIORITY: dict[JobStatus, int] = {
     "running": 0,
@@ -271,6 +272,15 @@ class JobManager:
         if not evals:
             return None
 
+        if self._has_cancelled_marker(job_dir):
+            return Job(
+                id=job_dir.name,
+                evals=evals,
+                created_at=self._job_created_at(job_dir),
+                status="cancelled",
+                total_evals=total_evals,
+            )
+
         model_dirs = self._discover_model_dirs(job_dir)
         if not model_dirs:
             # No eval logs yet — job is still initializing
@@ -330,6 +340,10 @@ class JobManager:
             if list(list_eval_logs(str(subdir))):
                 model_dirs.append(subdir)
         return model_dirs
+
+    def _has_cancelled_marker(self, job_dir: Path) -> bool:
+        """Check whether a cancelled marker file exists for this job."""
+        return (job_dir / CANCELLED_MARKER).exists()
 
     def _job_created_at(self, job_dir: Path) -> datetime:
         """Determine job creation time from manifest or eval-set files."""

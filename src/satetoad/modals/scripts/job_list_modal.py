@@ -8,6 +8,7 @@ from typing import ClassVar
 from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.color import Color, Gradient
 from textual.containers import HorizontalGroup, Vertical, VerticalScroll
 from textual.message import Message
 from textual.reactive import reactive
@@ -18,6 +19,10 @@ from textual.widgets import Button, ProgressBar, Static
 from satetoad.services.evals import Job, JobManager, JobStatus
 
 CANCEL_SYMBOL = "✕"
+ERROR_GRADIENT = Gradient(
+    (0, Color.parse("#FF5555")),
+    (1, Color.parse("#FF5555")),
+)
 
 STATUS_SYMBOLS: dict[JobStatus, str] = {
     "running": "●",
@@ -69,7 +74,7 @@ class JobListItem(HorizontalGroup):
             width: 1fr;
         }
 
-        #cancel-btn {
+        #job-cancel-btn {
             dock: right;
             width: 3;
             height: 1;
@@ -122,7 +127,7 @@ class JobListItem(HorizontalGroup):
         yield self._build_progress_bar()
 
         if self._job.status == "running":
-            yield Static(CANCEL_SYMBOL, id="cancel-btn")
+            yield Static(CANCEL_SYMBOL, id="job-cancel-btn")
 
     def _build_progress_bar(self) -> ProgressBar:
         """Build a ProgressBar reflecting the current job state."""
@@ -140,6 +145,7 @@ class JobListItem(HorizontalGroup):
         self._last_bar_progress = progress
         bar = self.query_one(ProgressBar)
         bar.update(total=total, progress=progress)
+        self._sync_bar_gradient()
 
     def update_job(self, job: Job) -> None:
         """Update this item with refreshed job data."""
@@ -152,6 +158,7 @@ class JobListItem(HorizontalGroup):
             self.query_one("#status", Static).update(STATUS_SYMBOLS[job.status])
 
         self._sync_progress_bar()
+        self._sync_bar_gradient()
         self._sync_cancel_button()
 
     def _sync_progress_bar(self) -> None:
@@ -166,30 +173,35 @@ class JobListItem(HorizontalGroup):
         bar = self.query_one(ProgressBar)
         bar.update(total=total, progress=progress)
 
+    def _sync_bar_gradient(self) -> None:
+        """Apply red gradient to the progress bar when the job is stopped."""
+        if not self._is_stopped():
+            return
+        bar = self.query_one(ProgressBar)
+        bar.gradient = ERROR_GRADIENT
+
     def _desired_bar_values(self) -> tuple[int, int]:
         """Return (total, progress) for the progress bar."""
         if self._job.status == "success":
             return (100, 100)
         if self._is_stopped():
-            if self._job.completed_evals == 0:
-                return (100, 100)
-            return (max(self._job.total_evals, 1), self._job.completed_evals)
+            return (100, 100)
         if self._job.total_evals > 0:
             return (self._job.total_evals, self._job.completed_evals)
         return (100, 0)
 
     def _sync_cancel_button(self) -> None:
         """Show or hide the cancel button based on job status."""
-        cancel_btns = self.query("#cancel-btn")
+        cancel_btns = self.query("#job-cancel-btn")
         if self._job.status == "running" and not cancel_btns:
-            self.mount(Static(CANCEL_SYMBOL, id="cancel-btn"))
+            self.mount(Static(CANCEL_SYMBOL, id="job-cancel-btn"))
         if self._job.status != "running" and cancel_btns:
             cancel_btns.first().remove()
 
     def _is_cancel_click(self, event: events.Click) -> bool:
         """Check if the click target is the cancel button."""
         for widget in event.widget.ancestors_with_self:
-            if getattr(widget, "id", None) == "cancel-btn":
+            if getattr(widget, "id", None) == "job-cancel-btn":
                 return True
         return False
 

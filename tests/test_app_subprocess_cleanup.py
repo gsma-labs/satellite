@@ -4,43 +4,42 @@ This test verifies that the inspect view subprocess is properly
 terminated when the app closes, preventing orphan processes.
 """
 
+import signal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 class TestAppSubprocessCleanup:
     """Tests for subprocess cleanup on app exit."""
 
     def test_inspect_view_terminated_on_unmount(self, tmp_path: Path) -> None:
-        """Subprocess should be terminated when app unmounts.
+        """Process group should be killed when app unmounts.
 
         This test verifies the fix for the orphan subprocess bug:
-        - App launches `uv run inspect view` on startup
-        - When app closes, the subprocess must be terminated
+        - App launches `uv run inspect view` on startup with start_new_session=True
+        - When app closes, os.killpg() kills the entire process group
         - Without the fix, the subprocess reference is lost and cannot be cleaned up
         """
         with patch("satetoad.app.subprocess.Popen") as popen_mock, \
-             patch("satetoad.app.MainScreen"):
-            # Setup mocks
+             patch("satetoad.app.MainScreen"), \
+             patch("satetoad.app.os.killpg") as mock_killpg, \
+             patch("satetoad.app.os.getpgid", return_value=12345):
             process = MagicMock()
-            process.poll.return_value = None  # Process running
+            process.pid = 12345
+            process.poll.return_value = None
             popen_mock.return_value = process
 
             # Import after patching to ensure patches apply
             from satetoad.app import SatetoadApp
 
             app = SatetoadApp()
+            app.set_timer = MagicMock()
 
             # Directly launch view (avoids JobManager dependency)
             app._launch_view(tmp_path)
 
-            # Verify subprocess was started
             assert popen_mock.called, "Subprocess should be started on launch"
 
-            # Simulate app closing - this should terminate the subprocess
             app.on_unmount()
 
-            # THE KEY ASSERTION: terminate() must be called on the subprocess
-            process.terminate.assert_called_once()
+            mock_killpg.assert_called_once_with(12345, signal.SIGTERM)
