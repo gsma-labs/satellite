@@ -13,10 +13,10 @@ import pytest
 from dotenv import load_dotenv
 from inspect_ai.log import list_eval_logs
 
-from satetoad.services.config import EvalSettings
-from satetoad.services.evals import EvalRunner
-from satetoad.services.evals.job_manager import Job, JobManager
-from satetoad.services.evals.worker import load_task
+from satellite.services.config import EvalSettings
+from satellite.services.evals import EvalRunner
+from satellite.services.evals.job_manager import Job, JobManager
+from satellite.services.evals.worker import load_task
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
@@ -75,7 +75,7 @@ class TestEvalSetParameters:
             settings=EvalSettings(limit=1),
         )
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.communicate.return_value = ("", "")
             mock_process.returncode = 0

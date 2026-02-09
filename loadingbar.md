@@ -91,8 +91,8 @@ def _update_existing_items(self, new_jobs: list[Job]) -> None:
 
 ## Files Changed
 
-- `src/satetoad/modals/scripts/job_list_modal.py`
-- `src/satetoad/modals/scripts/tabbed_evals_modal.py` (same pattern)
+- `src/satellite/modals/scripts/job_list_modal.py`
+- `src/satellite/modals/scripts/tabbed_evals_modal.py` (same pattern)
 
 ## Verification
 

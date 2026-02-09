@@ -1,4 +1,4 @@
-# Satetoad Makefile - uses uv for dependency management
+# Satellite Makefile - uses uv for dependency management
 
 # Load .env file if it exists
 ifneq (,$(wildcard .env))
@@ -6,7 +6,7 @@ ifneq (,$(wildcard .env))
     export
 endif
 
-run := uv run satetoad
+run := uv run satellite
 
 .PHONY: run
 run:
@@ -27,7 +27,7 @@ test:
 
 .PHONY: check
 check:
-	@uv run python -c "from satetoad.app import SatetoadApp; print('satetoad ........... OK')"
+	@uv run python -c "from satellite.app import SatelliteApp; print('satellite ........... OK')"
 	@uv run python -c "import inspect_ai; print('inspect-ai ......... OK')"
 	@uv run python -c "import evals; print('evals .............. OK')"
 
@@ -41,4 +41,4 @@ format:
 
 .PHONY: clean
 clean:
-	rm -rf .venv __pycache__ src/satetoad/__pycache__ .ruff_cache
+	rm -rf .venv __pycache__ src/satellite/__pycache__ .ruff_cache

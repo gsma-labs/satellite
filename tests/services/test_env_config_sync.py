@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from satetoad.services.config.env_config_manager import EnvConfigManager
+from satellite.services.config.env_config_manager import EnvConfigManager
 
 
 @pytest.fixture

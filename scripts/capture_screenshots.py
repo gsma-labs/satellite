@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture screenshots of satetoad screens and widgets.
+"""Capture screenshots of satellite screens and widgets.
 
 This script runs Textual apps in headless mode and captures SVG screenshots,
 then converts them to PNG format for documentation.
@@ -19,13 +19,13 @@ from textual.app import App, ComposeResult
 from textual.containers import Container
 from textual.widgets import Static
 
-# Import satetoad components
-from satetoad.app import SatetoadApp
-from satetoad.screens.main import MainScreen
-from satetoad.screens.trajectories import TrajectoriesScreen
-from satetoad.widgets.eval_box import EvalBox
-from satetoad.widgets.eval_list import EvalList, EvalListItem
-from satetoad.widgets.throbber import Throbber
+# Import satellite components
+from satellite.app import SatelliteApp
+from satellite.screens.main import MainScreen
+from satellite.screens.trajectories import TrajectoriesScreen
+from satellite.widgets.eval_box import EvalBox
+from satellite.widgets.eval_list import EvalList, EvalListItem
+from satellite.widgets.throbber import Throbber
 
 
 # Output directory
@@ -165,7 +165,7 @@ async def capture_widget(
 async def main():
     """Capture all screenshots."""
     print("=" * 50)
-    print("Satetoad Screenshot Capture")
+    print("Satellite Screenshot Capture")
     print("=" * 50)
 
     # Ensure directories exist
@@ -175,7 +175,7 @@ async def main():
     # 1. Main Screen (default view with boxes)
     print("\n[1/3] Capturing MainScreen (boxes view)...")
     await capture_screenshot(
-        SatetoadApp(),
+        SatelliteApp(),
         "main-screen",
         size=(100, 35),
     )
@@ -183,7 +183,7 @@ async def main():
     # 2. Main Screen with Run Evals panel
     print("\n[2/3] Capturing MainScreen (evals panel)...")
     await capture_screenshot(
-        SatetoadApp(),
+        SatelliteApp(),
         "main-screen-evals-panel",
         size=(100, 35),
         press_keys=["2"],  # Press 2 to go to Run Evals
@@ -192,7 +192,7 @@ async def main():
     # 3. Main Screen with Leaderboard panel
     print("\n[3/3] Capturing MainScreen (leaderboard panel)...")
     await capture_screenshot(
-        SatetoadApp(),
+        SatelliteApp(),
         "main-screen-leaderboard",
         size=(100, 35),
         press_keys=["3"],  # Press 3 to go to Leaderboard

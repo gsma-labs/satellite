@@ -1,6 +1,6 @@
 # Option 2: Evals Container with Job Progress Tracking
 
-This document describes the implementation of the "Evals" feature in Satetoad, which transforms the simple "Run Evals" box into a full job management system with persistent storage and a **unified tabbed interface**.
+This document describes the implementation of the "Evals" feature in Satellite, which transforms the simple "Run Evals" box into a full job management system with persistent storage and a **unified tabbed interface**.
 
 ## Overview
 
@@ -110,7 +110,7 @@ We chose a **single tabbed modal** over sequential modals because:
 
 ### Tab Widgets
 
-#### `src/satetoad/widgets/tab_item.py`
+#### `src/satellite/widgets/tab_item.py`
 Single clickable tab in the header row, following the `EvalsOptionItem` pattern.
 
 ```python
@@ -144,7 +144,7 @@ class TabItem(HorizontalGroup):
 - `-active` - Currently selected tab (purple border, highlighted background)
 - `-closable` - Shows close button
 
-#### `src/satetoad/widgets/tab_header.py`
+#### `src/satellite/widgets/tab_header.py`
 Horizontal container managing multiple TabItem widgets with keyboard navigation.
 
 ```python
@@ -181,7 +181,7 @@ class TabHeader(Horizontal):
 
 ### Tabbed Modal
 
-#### `src/satetoad/modals/tabbed_evals_modal.py`
+#### `src/satellite/modals/tabbed_evals_modal.py`
 Unified modal combining all evals functionality.
 
 ```python
@@ -240,7 +240,7 @@ _open_job_tabs: dict[str, str] = {}          # job_id → tab_id mapping
 
 ### Models (unchanged)
 
-#### `src/satetoad/models/job.py`
+#### `src/satellite/models/job.py`
 Job dataclass with:
 - `id`: Unique identifier (e.g., "job_1")
 - `benchmarks`: List of benchmark IDs
@@ -254,13 +254,13 @@ Job dataclass with:
 
 ### Services (unchanged)
 
-#### `src/satetoad/services/job_manager.py`
+#### `src/satellite/services/job_manager.py`
 Manages job persistence using XDG-compliant directories:
 
 **Storage Location:**
-- macOS: `~/Library/Application Support/satetoad/jobs/`
-- Linux: `~/.local/share/satetoad/jobs/`
-- Windows: `C:/Users/<user>/AppData/Local/satetoad/jobs/`
+- macOS: `~/Library/Application Support/satellite/jobs/`
+- Linux: `~/.local/share/satellite/jobs/`
+- Windows: `C:/Users/<user>/AppData/Local/satellite/jobs/`
 
 **Methods:**
 - `create_job(benchmarks, model_provider, model_name)` → Job
@@ -274,12 +274,12 @@ Manages job persistence using XDG-compliant directories:
 
 ## Modified Files
 
-### `src/satetoad/screens/main.py`
+### `src/satellite/screens/main.py`
 
 **Simplified flow** - now just pushes TabbedEvalsModal:
 
 ```python
-from satetoad.modals.tabbed_evals_modal import TabbedEvalsModal
+from satellite.modals.tabbed_evals_modal import TabbedEvalsModal
 
 def _show_evals_modal(self) -> None:
     """Push the TabbedEvalsModal for running evals and viewing progress."""
@@ -305,7 +305,7 @@ def _on_evals_completed(self, job: Job | None) -> None:
 - `_on_job_selected()` - handled internally
 - `_show_job_detail_modal()` - handled internally
 
-### `src/satetoad/main.tcss`
+### `src/satellite/main.tcss`
 
 **Added TabbedEvalsModal styles:**
 
@@ -353,15 +353,15 @@ TabItem.-closable #close-btn:hover {
 }
 ```
 
-### `src/satetoad/widgets/__init__.py`
+### `src/satellite/widgets/__init__.py`
 
 **Added exports:**
 ```python
-from satetoad.widgets.tab_item import TabItem
-from satetoad.widgets.tab_header import TabHeader
+from satellite.widgets.tab_item import TabItem
+from satellite.widgets.tab_header import TabHeader
 ```
 
-### `src/satetoad/modals/__init__.py`
+### `src/satellite/modals/__init__.py`
 
 **Added export:**
 ```python
@@ -391,7 +391,7 @@ from .tabbed_evals_modal import TabbedEvalsModal
 
 1. **Run the app:**
    ```bash
-   cd satetoad && python -m satetoad
+   cd satellite && python -m satellite
    ```
 
 2. **Test tabbed modal:**
@@ -424,8 +424,8 @@ from .tabbed_evals_modal import TabbedEvalsModal
 
 ### Verify persistence:
 ```bash
-ls ~/Library/Application\ Support/satetoad/jobs/
-cat ~/Library/Application\ Support/satetoad/jobs/job_1/metadata.json
+ls ~/Library/Application\ Support/satellite/jobs/
+cat ~/Library/Application\ Support/satellite/jobs/job_1/metadata.json
 ```
 
 ---
@@ -436,27 +436,27 @@ cat ~/Library/Application\ Support/satetoad/jobs/job_1/metadata.json
 
 | File | Description |
 |------|-------------|
-| `src/satetoad/widgets/tab_item.py` | Single clickable tab widget |
-| `src/satetoad/widgets/tab_header.py` | Tab container with navigation |
-| `src/satetoad/modals/tabbed_evals_modal.py` | Unified tabbed modal |
+| `src/satellite/widgets/tab_item.py` | Single clickable tab widget |
+| `src/satellite/widgets/tab_header.py` | Tab container with navigation |
+| `src/satellite/modals/tabbed_evals_modal.py` | Unified tabbed modal |
 
 ### Files Modified
 
 | File | Change |
 |------|--------|
-| `src/satetoad/screens/main.py` | Uses TabbedEvalsModal instead of EvalsModal |
-| `src/satetoad/main.tcss` | Added TabbedEvalsModal, TabHeader, TabItem styles |
-| `src/satetoad/widgets/__init__.py` | Exports TabItem, TabHeader |
-| `src/satetoad/modals/__init__.py` | Exports TabbedEvalsModal |
+| `src/satellite/screens/main.py` | Uses TabbedEvalsModal instead of EvalsModal |
+| `src/satellite/main.tcss` | Added TabbedEvalsModal, TabHeader, TabItem styles |
+| `src/satellite/widgets/__init__.py` | Exports TabItem, TabHeader |
+| `src/satellite/modals/__init__.py` | Exports TabbedEvalsModal |
 
 ### Files Kept for Reference (not deleted)
 
 | File | Reason |
 |------|--------|
-| `src/satetoad/modals/evals_modal.py` | Original option picker pattern |
-| `src/satetoad/modals/run_evals_modal.py` | Standalone modal version |
-| `src/satetoad/modals/job_list_modal.py` | Standalone modal version |
-| `src/satetoad/modals/job_detail_modal.py` | Standalone modal version |
+| `src/satellite/modals/evals_modal.py` | Original option picker pattern |
+| `src/satellite/modals/run_evals_modal.py` | Standalone modal version |
+| `src/satellite/modals/job_list_modal.py` | Standalone modal version |
+| `src/satellite/modals/job_detail_modal.py` | Standalone modal version |
 
 ---
 

@@ -1,1 +1,1 @@
-"""Tests for satetoad modal components."""
+"""Tests for satellite modal components."""

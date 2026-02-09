@@ -1,8 +1,8 @@
-# Satetoad Project Guidelines
+# Satellite Project Guidelines
 
 ## Project Overview
 
-**Satetoad** is a Minimal TUI Widget Learning Framework - a simplified version of the Toad AI interface focused on visual widgets and UI/UX patterns. It serves dual purposes:
+**Satellite** is a Minimal TUI Widget Learning Framework - a simplified version of the Toad AI interface focused on visual widgets and UI/UX patterns. It serves dual purposes:
 
 1. **Educational**: Teaching Textual widget patterns through clear, documented code
 2. **Practical**: Open Telco Evaluation Suite for benchmarking LLMs on telecom tasks (TeleQnA, TeleTables, TeleLogs, TeleMath, 3GPP)
@@ -18,8 +18,8 @@
 ## Directory Structure
 
 ```
-src/satetoad/
-├── app.py              # Entry point (SatetoadApp class)
+src/satellite/
+├── app.py              # Entry point (SatelliteApp class)
 ├── main.tcss           # All CSS styles
 ├── screens/            # Screen implementations (MainScreen)
 ├── widgets/            # Reusable widget components
@@ -48,10 +48,21 @@ uv run make format   # Format code
 
 ## Key Files
 
-- `src/satetoad/app.py` - Main app entry point
-- `src/satetoad/main.tcss` - All CSS styles
-- `src/satetoad/docs/WIDGET_PATTERNS.md` - Pattern documentation (read before creating widgets)
-- `src/satetoad/examples/eval_data.py` - Mock data
+- `src/satellite/app.py` - Main app entry point
+- `src/satellite/main.tcss` - All CSS styles
+- `src/satellite/docs/WIDGET_PATTERNS.md` - Pattern documentation (read before creating widgets)
+- `src/satellite/examples/eval_data.py` - Mock data
+
+---
+
+## Venv Entry Point Integrity (CRITICAL)
+
+After **any** directory rename or package rename:
+1. **Always** `rm -rf .venv uv.lock` before `uv sync --dev`. A partial `uv sync` leaves stale shebangs in third-party entry point scripts (e.g., `.venv/bin/inspect`) pointing to the old directory's Python interpreter.
+2. **Always** run `uv run pytest tests/test_entry_points.py -v` to verify all CLI entry points (`satellite`, `inspect`) have valid shebangs pointing to the current venv.
+3. **Never** assume `uv sync` alone is sufficient after a directory move — it does not regenerate all entry point shebangs.
+
+This has broken the app twice. The guard tests in `tests/test_entry_points.py` exist specifically to catch this.
 
 ---
 
@@ -63,7 +74,7 @@ Always ask multiple questions to clarify ambiguity before proceeding with implem
 ### Use uv
 Always use `uv` to run Python commands:
 ```bash
-uv run python -m satetoad    # Not: python -m satetoad
+uv run python -m satellite    # Not: python -m satellite
 uv add package               # Not: pip install package
 ```
 
@@ -300,7 +311,7 @@ for user in users:
 
 ## Development Guidelines
 
-1. Read `src/satetoad/docs/WIDGET_PATTERNS.md` before creating new widgets
+1. Read `src/satellite/docs/WIDGET_PATTERNS.md` before creating new widgets
 2. New widgets go in `widgets/`, modals in `modals/`
 3. Keep mock data in `examples/`
 4. Follow existing patterns for consistency

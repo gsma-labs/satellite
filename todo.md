@@ -1,4 +1,4 @@
-# Satetoad TUI Feature Parity TODO
+# Satellite TUI Feature Parity TODO
 
 Focus: UI/UX enhancements with mocked backend. No real API calls.
 
@@ -8,7 +8,7 @@ Focus: UI/UX enhancements with mocked backend. No real API calls.
 
 ### Missing UI
 - [ ] Model input field (format: `provider/model-name`)
-- [ ] More providers (satellite has 9, satetoad has 4)
+- [ ] More providers (satellite has 9, satellite has 4)
 - [ ] API key validation indicator (checking → valid/invalid)
 - [ ] Success feedback when key is "saved"
 

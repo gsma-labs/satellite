@@ -4,24 +4,24 @@
 
 1. **Move widget back:**
    ```bash
-   mv future_work/agent_item.py src/satetoad/widgets/agent_item.py
+   mv future_work/agent_item.py src/satellite/widgets/agent_item.py
    ```
 
-2. **Append CSS** from `future_work/agent_boxes.tcss` to the end of `src/satetoad/main.tcss`.
+2. **Append CSS** from `future_work/agent_boxes.tcss` to the end of `src/satellite/main.tcss`.
 
-3. **In `src/satetoad/screens/main.py`**, apply the diffs below.
+3. **In `src/satellite/screens/main.py`**, apply the diffs below.
 
 ## main.py changes
 
 ### Imports — add these lines
 
 ```python
-from satetoad.examples.eval_data import (
+from satellite.examples.eval_data import (
     AGENTS,              # add
     AGENTS_BY_SHORTCUT,  # add
     ...
 )
-from satetoad.widgets.agent_item import AgentItem  # add
+from satellite.widgets.agent_item import AgentItem  # add
 ```
 
 ### BINDINGS — add after the model keys (4-7)

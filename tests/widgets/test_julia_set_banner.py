@@ -14,15 +14,15 @@ from unittest.mock import patch
 
 import pytest
 
-from satetoad.app import SatetoadApp
-from satetoad.widgets.julia_set import JuliaSet
+from satellite.app import SatelliteApp
+from satellite.widgets.julia_set import JuliaSet
 
 
 class TestBannerSizing:
     """Tests for banner and JuliaSet size consistency."""
 
     @pytest.mark.asyncio
-    @patch.object(SatetoadApp, "_launch_inspect_view")
+    @patch.object(SatelliteApp, "_launch_inspect_view")
     async def test_banner_height_matches_julia_set_height(
         self, mock_launch: None
     ) -> None:
@@ -39,7 +39,7 @@ class TestBannerSizing:
         ]
 
         for width, height in test_sizes:
-            app = SatetoadApp()
+            app = SatelliteApp()
             async with app.run_test(size=(width, height)) as pilot:
                 await pilot.pause()
 
@@ -56,7 +56,7 @@ class TestBannerSizing:
                 )
 
     @pytest.mark.asyncio
-    @patch.object(SatetoadApp, "_launch_inspect_view")
+    @patch.object(SatelliteApp, "_launch_inspect_view")
     async def test_banner_has_fixed_height(self, mock_launch: None) -> None:
         """Banner must have fixed height regardless of terminal size.
 
@@ -66,7 +66,7 @@ class TestBannerSizing:
         heights_at_sizes = []
 
         for width, height in [(80, 24), (80, 40), (80, 60)]:
-            app = SatetoadApp()
+            app = SatelliteApp()
             async with app.run_test(size=(width, height)) as pilot:
                 await pilot.pause()
 

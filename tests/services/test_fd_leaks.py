@@ -1,4 +1,4 @@
-"""Tests for file descriptor leaks in satetoad services.
+"""Tests for file descriptor leaks in satellite services.
 
 Verifies that subprocess DEVNULL usage, JobManager rglob, and
 read_eval_log calls do not accumulate leaked file descriptors.
@@ -27,10 +27,10 @@ class TestAppViewProcessPipeFdLeak:
         """_launch_view() uses DEVNULL for stdin/stdout/stderr."""
         popen_mock, process = mock_popen
 
-        with patch("satetoad.app.MainScreen"):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_view(tmp_path)
 
@@ -47,10 +47,10 @@ class TestAppViewProcessPipeFdLeak:
         """_launch_view() should isolate subprocess from Textual's terminal."""
         popen_mock, process = mock_popen
 
-        with patch("satetoad.app.MainScreen"):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_view(tmp_path)
 
@@ -66,13 +66,13 @@ class TestAppViewProcessPipeFdLeak:
         count_fds, _ = fd_counter
         baseline_fds = count_fds()
 
-        with patch("satetoad.app.subprocess.Popen") as popen_mock, \
-             patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg"), \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.subprocess.Popen") as popen_mock, \
+             patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg"), \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
 
             for i in range(10):
@@ -104,7 +104,7 @@ class TestJobManagerFdAccumulation:
         fd_counter: tuple[Callable[[], int], Callable[[], int]],
     ) -> None:
         """Repeated list_jobs() calls do not leak FDs via read_eval_log()."""
-        from satetoad.services.evals import JobManager
+        from satellite.services.evals import JobManager
 
         count_fds, _ = fd_counter
 
@@ -191,7 +191,7 @@ class TestJobManagerFdAccumulation:
         expected_max_fd_increase: int,
     ) -> None:
         """FD usage is O(1), not O(n) with number of jobs."""
-        from satetoad.services.evals import JobManager
+        from satellite.services.evals import JobManager
 
         count_fds, _ = fd_counter
 
@@ -236,7 +236,7 @@ class TestFdStressScenarios:
         fd_counter: tuple[Callable[[], int], Callable[[], int]],
     ) -> None:
         """Combined JobManager and view process usage stays under 10% of FD limit."""
-        from satetoad.services.evals import JobManager
+        from satellite.services.evals import JobManager
 
         count_fds, get_limit = fd_counter
 
@@ -255,13 +255,13 @@ class TestFdStressScenarios:
 
         fd_limit = get_limit()
 
-        with patch("satetoad.app.subprocess.Popen") as popen_mock, \
-             patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg"), \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.subprocess.Popen") as popen_mock, \
+             patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg"), \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
 
             for i in range(15):
@@ -291,7 +291,7 @@ class TestFdStressScenarios:
         fd_counter: tuple[Callable[[], int], Callable[[], int]],
     ) -> None:
         """Heavy load with real file operations stays under 30% of FD limit."""
-        from satetoad.services.evals import JobManager
+        from satellite.services.evals import JobManager
 
         count_fds, get_limit = fd_counter
 
@@ -334,7 +334,7 @@ class TestFdStressScenarios:
         fd_counter: tuple[Callable[[], int], Callable[[], int]],
     ) -> None:
         """Stress test does not trigger EMFILE (too many open files)."""
-        from satetoad.services.evals import JobManager
+        from satellite.services.evals import JobManager
 
         jobs_dir = tmp_path / "jobs"
 

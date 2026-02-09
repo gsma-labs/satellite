@@ -28,7 +28,7 @@ Tried to set terminal tab title by writing ANSI escape sequence before starting 
 ```python
 sys.stdout.write("\033]0;🛰️ Satellite\007")
 sys.stdout.flush()
-app = SatetoadApp()
+app = SatelliteApp()
 app.run()
 ```
 

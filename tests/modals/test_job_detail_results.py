@@ -11,16 +11,16 @@ from unittest.mock import MagicMock
 import pytest
 from textual.app import App
 
-from satetoad.modals import (
+from satellite.modals import (
     JobDetailModal,
     JobListItem,
     ModelConfig,
     TabbedEvalsModal,
 )
-from satetoad.services.config import EvalSettingsManager
-from satetoad.services.evals import Job, JobDetails, JobManager
-from satetoad.widgets.tab_header import TabHeader
-from satetoad.widgets.tab_item import TabItem
+from satellite.services.config import EvalSettingsManager
+from satellite.services.evals import Job, JobDetails, JobManager
+from satellite.widgets.tab_header import TabHeader
+from satellite.widgets.tab_item import TabItem
 
 
 def _make_mock_job_manager(

@@ -1,1 +1,1 @@
-"""Tests for satetoad widgets."""
+"""Tests for satellite widgets."""

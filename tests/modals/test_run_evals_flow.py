@@ -11,10 +11,10 @@ import pytest
 from textual.app import App
 from textual.widgets import Button
 
-from satetoad.modals import ModelConfig, TabbedEvalsModal
-from satetoad.services.config import EvalSettingsManager
-from satetoad.services.evals import BENCHMARKS_BY_ID, Job, JobManager
-from satetoad.widgets.eval_list import EvalList
+from satellite.modals import ModelConfig, TabbedEvalsModal
+from satellite.services.config import EvalSettingsManager
+from satellite.services.evals import BENCHMARKS_BY_ID, Job, JobManager
+from satellite.widgets.eval_list import EvalList
 
 
 class RunEvalsTestApp(App):

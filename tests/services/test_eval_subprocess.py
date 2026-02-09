@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from satetoad.services.config import EvalSettings
-from satetoad.services.evals.runner import EvalResult, EvalRunner
+from satellite.services.config import EvalSettings
+from satellite.services.evals.runner import EvalResult, EvalRunner
 
 
 def _make_mock_popen(returncode: int = 0, stderr: str = "") -> MagicMock:
@@ -28,12 +28,12 @@ class TestRunEvalSetSubprocess:
     """Tests for _run_eval_set subprocess isolation."""
 
     def test_calls_subprocess_with_correct_command(self, tmp_path: Path) -> None:
-        """Subprocess called with uv run python -m satetoad.services.evals.worker."""
+        """Subprocess called with uv run python -m satellite.services.evals.worker."""
         log_dir = tmp_path / "logs"
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.return_value = _make_mock_popen()
 
             runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
@@ -42,7 +42,7 @@ class TestRunEvalSetSubprocess:
             call_args = mock_popen.call_args
             cmd = call_args[0][0]
 
-            assert cmd == ["uv", "run", "python", "-m", "satetoad.services.evals.worker"]
+            assert cmd == ["uv", "run", "python", "-m", "satellite.services.evals.worker"]
 
     def test_passes_config_via_stdin(self, tmp_path: Path) -> None:
         """Config JSON passed via stdin with model, benchmarks, log_dir, and settings."""
@@ -50,7 +50,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_process = _make_mock_popen()
             mock_popen.return_value = mock_process
             settings = EvalSettings(limit=5, epochs=2)
@@ -72,7 +72,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.return_value = _make_mock_popen(returncode=0)
 
             result = runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
@@ -85,7 +85,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.return_value = _make_mock_popen(returncode=2, stderr="Cancelled")
 
             result = runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
@@ -99,7 +99,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.return_value = _make_mock_popen(returncode=1, stderr="API error: invalid key")
 
             result = runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
@@ -114,7 +114,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.return_value = _make_mock_popen()
 
             runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
@@ -128,7 +128,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.return_value = _make_mock_popen()
 
             runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
@@ -147,7 +147,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_process = _make_mock_popen()
             mock_popen.return_value = mock_process
 
@@ -166,7 +166,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_process = _make_mock_popen()
             mock_popen.return_value = mock_process
 
@@ -183,7 +183,7 @@ class TestRunEvalSetSubprocess:
         log_dir.mkdir()
         runner = EvalRunner(tmp_path)
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.side_effect = FileNotFoundError("uv not found")
 
             with pytest.raises(FileNotFoundError, match="uv not found"):

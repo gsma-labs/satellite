@@ -7,7 +7,7 @@ This test should FAIL until the bug is fixed.
 
 import pytest
 
-from satetoad.examples.eval_data import PROVIDERS_BY_CATEGORY
+from satellite.examples.eval_data import PROVIDERS_BY_CATEGORY
 
 
 class TestProviderCategories:
