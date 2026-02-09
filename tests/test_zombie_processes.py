@@ -20,7 +20,7 @@ import pytest
 @pytest.fixture
 def mock_popen_for_zombie() -> Generator[tuple[MagicMock, MagicMock], None, None]:
     """Mock Popen that tracks cleanup method calls."""
-    with patch("satetoad.app.subprocess.Popen") as popen_mock:
+    with patch("satellite.app.subprocess.Popen") as popen_mock:
         process = MagicMock()
         process.pid = 99999
         process.poll.return_value = None
@@ -68,10 +68,10 @@ class TestZombieSubprocessOnForceKill:
         mock_popen_for_zombie: tuple[MagicMock, MagicMock],
     ) -> None:
         """App should register atexit handler for subprocess cleanup."""
-        with patch("satetoad.app.MainScreen"):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
 
             has_atexit = hasattr(app, "_atexit_registered") and app._atexit_registered
 
@@ -87,12 +87,12 @@ class TestZombieSubprocessOnForceKill:
         """on_unmount kills the entire process group via os.killpg()."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg") as mock_killpg, \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg") as mock_killpg, \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_inspect_view()
 
@@ -123,10 +123,10 @@ class TestSignalHandlingZombies:
         """App init must not change the signal handler for SIGTERM/SIGINT."""
         original_handler = signal.getsignal(signal_num)
 
-        with patch("satetoad.app.MainScreen"):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"):
+            from satellite.app import SatelliteApp
 
-            _app = SatetoadApp()
+            _app = SatelliteApp()
 
         current_handler = signal.getsignal(signal_num)
 
@@ -141,7 +141,7 @@ class TestJuliaSetTimerLeaks:
 
     def test_julia_set_has_on_unmount(self) -> None:
         """JuliaSet widget should have on_unmount for timer cleanup."""
-        from satetoad.widgets.julia_set import JuliaSet
+        from satellite.widgets.julia_set import JuliaSet
 
         has_custom_unmount = "on_unmount" in JuliaSet.__dict__
 
@@ -159,7 +159,7 @@ class TestJuliaSetTimerLeaks:
         from textual.app import App, ComposeResult
         from textual.events import Click
 
-        from satetoad.widgets.julia_set import JuliaSet
+        from satellite.widgets.julia_set import JuliaSet
 
         class TestApp(App):
             def compose(self) -> ComposeResult:
@@ -198,7 +198,7 @@ class TestJuliaSetTimerLeaks:
         from textual.app import App, ComposeResult
         from textual.events import Click
 
-        from satetoad.widgets.julia_set import JuliaSet
+        from satellite.widgets.julia_set import JuliaSet
 
         class TestApp(App):
             def compose(self) -> ComposeResult:
@@ -249,7 +249,7 @@ class TestJuliaSetTimerLeaks:
         from textual.app import App, ComposeResult
         from textual.events import Click
 
-        from satetoad.widgets.julia_set import JuliaSet
+        from satellite.widgets.julia_set import JuliaSet
 
         class TestApp(App):
             def compose(self) -> ComposeResult:
@@ -306,19 +306,19 @@ class TestMultipleAppInstancesZombies:
         """Second app instance cleans up first via os.killpg()."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg") as mock_killpg, \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg") as mock_killpg, \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
-            app1 = SatetoadApp()
+            app1 = SatelliteApp()
             app1.set_timer = MagicMock()
             app1._launch_inspect_view()
 
             first_call_count = popen_mock.call_count
             assert first_call_count == 1
 
-            app2 = SatetoadApp()
+            app2 = SatelliteApp()
             app2.set_timer = MagicMock()
             app2._launch_inspect_view()
 
@@ -331,15 +331,15 @@ class TestMultipleAppInstancesZombies:
         """_launch_view kills existing process group before spawning a new one."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg") as mock_killpg, \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg") as mock_killpg, \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
             # Clear singleton to avoid cross-test interference
-            SatetoadApp._instance = None
+            SatelliteApp._instance = None
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_view(Path("/tmp/logs1"))
 
@@ -425,10 +425,10 @@ class TestCrashDuringOperation:
         """Atexit handler remains registered even after exceptions."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_inspect_view()
 
@@ -484,15 +484,15 @@ class TestAppStopViewProcessEdgeCases:
             None,
         ]
 
-        with patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg") as mock_killpg, \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg") as mock_killpg, \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
             # Clear singleton to avoid cross-test interference
-            SatetoadApp._instance = None
+            SatelliteApp._instance = None
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_view(Path("/tmp/logs"))
 
@@ -509,12 +509,12 @@ class TestAppStopViewProcessEdgeCases:
         """_stop_view_process() clears the reference to prevent double-cleanup."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg"), \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg"), \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_view(Path("/tmp/logs"))
             assert app._view_process is not None
@@ -530,12 +530,12 @@ class TestAppStopViewProcessEdgeCases:
         """Repeated _stop_view_process() calls are safe and only signal once."""
         popen_mock, process = mock_popen_for_zombie
 
-        with patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg") as mock_killpg, \
-             patch("satetoad.app.os.getpgid", return_value=99999):
-            from satetoad.app import SatetoadApp
+        with patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg") as mock_killpg, \
+             patch("satellite.app.os.getpgid", return_value=99999):
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
             app._launch_view(Path("/tmp/logs"))
 

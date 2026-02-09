@@ -2,7 +2,7 @@
 
 ## Problem
 
-When running `uv run satetoad` from `/ot/satetoad/`, mouse escape sequences (`^[[<35;15;3M...`) appeared at the top of the screen when moving the mouse. The same command worked correctly when run from `/ot/`.
+When running `uv run satellite` from `/ot/satellite/`, mouse escape sequences (`^[[<35;15;3M...`) appeared at the top of the screen when moving the mouse. The same command worked correctly when run from `/ot/`.
 
 ## Root Cause
 
@@ -11,7 +11,7 @@ The `evals` package imports `inspect-ai` which has its own terminal handling tha
 | Location | `evals` package | Behavior |
 |----------|-----------------|----------|
 | `/ot/.venv` | Not installed | Import fails → fallback metadata → works |
-| `/ot/satetoad/.venv` | Installed | Imports `inspect-ai` → terminal conflict → bug |
+| `/ot/satellite/.venv` | Installed | Imports `inspect-ai` → terminal conflict → bug |
 
 ### Import Chain (the problem)
 
@@ -42,7 +42,7 @@ The problem is that inspect-ai's terminal handling conflicts with Textual's driv
 
 The fix: import evals/inspect-ai **before** `app.run()` is called. At that point, the terminal is still "normal", so inspect-ai initializes without conflict. Then Textual takes over cleanly.
 
-### File: `src/satetoad/app.py`
+### File: `src/satellite/app.py`
 
 Import in `main()` before Textual starts:
 
@@ -65,11 +65,11 @@ def main() -> None:
     except ImportError:
         pass  # evals not installed, will use fallback metadata
 
-    app = SatetoadApp()
+    app = SatelliteApp()
     app.run()
 ```
 
-### File: `src/satetoad/services/eval_registry.py`
+### File: `src/satellite/services/eval_registry.py`
 
 Keep the dynamic import (needed for future evals) - it's now a no-op since module is already loaded:
 

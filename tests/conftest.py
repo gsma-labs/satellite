@@ -1,4 +1,4 @@
-"""Shared test fixtures for satetoad tests."""
+"""Shared test fixtures for satellite tests."""
 
 import os
 import resource
@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from satetoad.services.config import ModelConfig
-from satetoad.services.evals import JobManager
+from satellite.services.config import ModelConfig
+from satellite.services.evals import JobManager
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def mock_popen() -> Generator[tuple[MagicMock, MagicMock], None, None]:
     Yields:
         Tuple of (Popen mock, process instance mock)
     """
-    with patch("satetoad.app.subprocess.Popen") as popen_mock:
+    with patch("satellite.app.subprocess.Popen") as popen_mock:
         process = MagicMock()
         process.poll.return_value = None  # Process running by default
         popen_mock.return_value = process

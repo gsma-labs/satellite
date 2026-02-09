@@ -51,4 +51,4 @@ Thumbs.db
 
 # Evaluation logs (generated)
 logs/
-src/satetoad/jobs/
+src/satellite/jobs/

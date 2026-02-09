@@ -1,4 +1,4 @@
-"""Tests for SatetoadApp subprocess cleanup behavior.
+"""Tests for SatelliteApp subprocess cleanup behavior.
 
 This test verifies that the inspect view subprocess is properly
 terminated when the app closes, preventing orphan processes.
@@ -20,19 +20,19 @@ class TestAppSubprocessCleanup:
         - When app closes, os.killpg() kills the entire process group
         - Without the fix, the subprocess reference is lost and cannot be cleaned up
         """
-        with patch("satetoad.app.subprocess.Popen") as popen_mock, \
-             patch("satetoad.app.MainScreen"), \
-             patch("satetoad.app.os.killpg") as mock_killpg, \
-             patch("satetoad.app.os.getpgid", return_value=12345):
+        with patch("satellite.app.subprocess.Popen") as popen_mock, \
+             patch("satellite.app.MainScreen"), \
+             patch("satellite.app.os.killpg") as mock_killpg, \
+             patch("satellite.app.os.getpgid", return_value=12345):
             process = MagicMock()
             process.pid = 12345
             process.poll.return_value = None
             popen_mock.return_value = process
 
             # Import after patching to ensure patches apply
-            from satetoad.app import SatetoadApp
+            from satellite.app import SatelliteApp
 
-            app = SatetoadApp()
+            app = SatelliteApp()
             app.set_timer = MagicMock()
 
             # Directly launch view (avoids JobManager dependency)

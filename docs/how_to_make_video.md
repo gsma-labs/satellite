@@ -1,4 +1,4 @@
-# How to Make a Video Demo of Satetoad
+# How to Make a Video Demo of Satellite
 
 Record scripted terminal demos using [VHS by Charmbracelet](https://github.com/charmbracelet/vhs). VHS reads a `.tape` file that declares terminal interactions, then renders them into GIF, MP4, or WebM.
 
@@ -80,7 +80,7 @@ Use `Hide` / `Show` to run setup commands without showing them in the recording:
 
 ```tape
 Hide
-Type "cd /path/to/satetoad"
+Type "cd /path/to/satellite"
 Enter
 Sleep 500ms
 Show
@@ -89,7 +89,7 @@ Show
 ### 3. Scripted Interactions
 
 ```tape
-Type "uv run python -m satetoad"
+Type "uv run python -m satellite"
 Enter
 Sleep 4s
 
@@ -206,7 +206,7 @@ Set Height 700    # Shorter
 ### Embed in README
 
 ```markdown
-![Satetoad Demo](docs/demo.gif)
+![Satellite Demo](docs/demo.gif)
 ```
 
 ### Upload to vhs.charm.sh

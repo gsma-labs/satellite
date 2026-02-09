@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from satetoad.services.evals.job_manager import Job
-from satetoad.services.leaderboard.client import (
+from satellite.services.evals.job_manager import Job
+from satellite.services.leaderboard.client import (
     LeaderboardEntry,
     collect_local_entries,
     merge_leaderboard,
@@ -71,7 +71,7 @@ class TestCollectLocalEntries:
     """Tests for scanning jobs and building local leaderboard entries."""
 
     @patch(
-        "satetoad.services.leaderboard.client.BENCHMARKS_BY_ID",
+        "satellite.services.leaderboard.client.BENCHMARKS_BY_ID",
         MOCK_BENCHMARKS,
     )
     def test_collect_requires_all_benchmarks(self) -> None:
@@ -87,7 +87,7 @@ class TestCollectLocalEntries:
         assert entries == []
 
     @patch(
-        "satetoad.services.leaderboard.client.BENCHMARKS_BY_ID",
+        "satellite.services.leaderboard.client.BENCHMARKS_BY_ID",
         MOCK_BENCHMARKS,
     )
     def test_collect_score_normalization(self) -> None:
@@ -104,7 +104,7 @@ class TestCollectLocalEntries:
         assert entries[0].scores["b1"] == pytest.approx(85.0)
 
     @patch(
-        "satetoad.services.leaderboard.client.BENCHMARKS_BY_ID",
+        "satellite.services.leaderboard.client.BENCHMARKS_BY_ID",
         MOCK_BENCHMARKS,
     )
     def test_collect_avg_score_is_mean(self) -> None:
@@ -121,7 +121,7 @@ class TestCollectLocalEntries:
         assert entries[0].avg_score == pytest.approx(80.0)
 
     @patch(
-        "satetoad.services.leaderboard.client.BENCHMARKS_BY_ID",
+        "satellite.services.leaderboard.client.BENCHMARKS_BY_ID",
         MOCK_BENCHMARKS,
     )
     def test_collect_requires_actual_scores(self) -> None:
@@ -137,7 +137,7 @@ class TestCollectLocalEntries:
         assert entries == []
 
     @patch(
-        "satetoad.services.leaderboard.client.BENCHMARKS_BY_ID",
+        "satellite.services.leaderboard.client.BENCHMARKS_BY_ID",
         MOCK_BENCHMARKS,
     )
     def test_collect_deduplicates_by_recency(self) -> None:
@@ -158,7 +158,7 @@ class TestCollectLocalEntries:
         assert entries[0].avg_score == pytest.approx(95.0)
 
     @patch(
-        "satetoad.services.leaderboard.client.BENCHMARKS_BY_ID",
+        "satellite.services.leaderboard.client.BENCHMARKS_BY_ID",
         MOCK_BENCHMARKS,
     )
     def test_collect_uses_registry_dynamically(self) -> None:
@@ -176,7 +176,7 @@ class TestCollectLocalEntries:
         assert entries[0].is_local is True
 
     @patch(
-        "satetoad.services.leaderboard.client.BENCHMARKS_BY_ID",
+        "satellite.services.leaderboard.client.BENCHMARKS_BY_ID",
         {"b1": None, "b2": None, "b3": None, "b4": None},
     )
     def test_collect_fails_with_larger_registry(self) -> None:

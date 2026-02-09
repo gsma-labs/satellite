@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from satetoad.services.config import EvalSettings
-from satetoad.services.evals.job_manager import Job, JobManager
-from satetoad.services.evals.runner import CANCELLED_MARKER, EvalResult, EvalRunner
+from satellite.services.config import EvalSettings
+from satellite.services.evals.job_manager import Job, JobManager
+from satellite.services.evals.runner import CANCELLED_MARKER, EvalResult, EvalRunner
 
 
 def _make_mock_popen(returncode: int = 0, stderr: str = "") -> MagicMock:
@@ -48,8 +48,8 @@ class TestCancelJob:
         runner._active_processes["job_1"] = mock_process
 
         with (
-            patch("satetoad.services.evals.runner.os.getpgid", return_value=99) as mock_getpgid,
-            patch("satetoad.services.evals.runner.os.killpg") as mock_killpg,
+            patch("satellite.services.evals.runner.os.getpgid", return_value=99) as mock_getpgid,
+            patch("satellite.services.evals.runner.os.killpg") as mock_killpg,
         ):
             runner.cancel_job("job_1")
 
@@ -74,7 +74,7 @@ class TestCancelJob:
 
         runner._active_processes["job_1"] = mock_process
 
-        with patch("satetoad.services.evals.runner.os.killpg") as mock_killpg:
+        with patch("satellite.services.evals.runner.os.killpg") as mock_killpg:
             runner.cancel_job("job_1")
 
             mock_killpg.assert_not_called()
@@ -88,9 +88,9 @@ class TestCancelJob:
         mock_process.wait.side_effect = subprocess.TimeoutExpired("cmd", 5)
 
         with (
-            patch("satetoad.services.evals.runner.os.getpgid", return_value=99),
-            patch("satetoad.services.evals.runner.os.killpg") as mock_killpg,
-            patch("satetoad.services.evals.runner.threading.Thread") as mock_thread,
+            patch("satellite.services.evals.runner.os.getpgid", return_value=99),
+            patch("satellite.services.evals.runner.os.killpg") as mock_killpg,
+            patch("satellite.services.evals.runner.threading.Thread") as mock_thread,
         ):
             runner._terminate_process_tree(mock_process)
 
@@ -116,9 +116,9 @@ class TestCancelJob:
         mock_process.wait.return_value = 0  # Exits immediately
 
         with (
-            patch("satetoad.services.evals.runner.os.getpgid", return_value=99),
-            patch("satetoad.services.evals.runner.os.killpg") as mock_killpg,
-            patch("satetoad.services.evals.runner.threading.Thread") as mock_thread,
+            patch("satellite.services.evals.runner.os.getpgid", return_value=99),
+            patch("satellite.services.evals.runner.os.killpg") as mock_killpg,
+            patch("satellite.services.evals.runner.threading.Thread") as mock_thread,
         ):
             runner._terminate_process_tree(mock_process)
 
@@ -153,7 +153,7 @@ class TestCancelJob:
             runner.cancel_job("job_1")
             return mock_proc
 
-        with patch("satetoad.services.evals.runner.subprocess.Popen") as mock_popen:
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
             mock_popen.side_effect = side_effect
 
             result = runner.run_job(job)

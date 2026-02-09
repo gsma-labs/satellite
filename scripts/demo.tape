@@ -1,4 +1,4 @@
-# Satetoad TUI Demo - VHS Tape File
+# Satellite TUI Demo - VHS Tape File
 # Run with: vhs scripts/demo.tape
 # Output: docs/demo.gif (and docs/demo.mp4)
 # Duration: ~30-35s (fast-paced showcase)
@@ -24,12 +24,12 @@ Set Theme "Dracula"
 
 # ─── Launch the app ───────────────────────────
 Hide
-Type "cd /Users/emolero/Documents/GitHub/ot/satetoad"
+Type "cd /Users/emolero/Documents/GitHub/ot/satellite"
 Enter
 Sleep 500ms
 Show
 
-Type "uv run python -m satetoad"
+Type "uv run python -m satellite"
 Enter
 Sleep 3s
 

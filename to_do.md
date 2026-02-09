@@ -1,8 +1,8 @@
 Executive Summary
-This plan describes the TUI features missing from satetoad to achieve feature parity with satellite. All backend functionality will be mocked. The focus is purely on user interface and user experience.
+This plan describes the TUI features missing from satellite to achieve feature parity with satellite. All backend functionality will be mocked. The focus is purely on user interface and user experience.
 
 Current State Analysis
-What Satetoad Has
+What Satellite Has
 Main screen with 4 EvalBox cards in a 2x2 grid (GridSelect)
 Panel-based navigation using CSS visibility toggling
 Basic SetModelPanel with provider dropdown and API key input
@@ -11,9 +11,9 @@ Placeholder LeaderboardPanel with static table
 Placeholder SubmitPanel with form fields
 Visual widgets: Satellite, TowerNetwork, Mandelbrot
 Utility widgets: Flash (notifications), Throbber (loading)
-What Satellite Has (That Satetoad Lacks)
+What Satellite Has (That Satellite Lacks)
 Model input field with provider/model format
-9 providers (vs satetoad's 4)
+9 providers (vs satellite's 4)
 API key validation with visual feedback
 Pre-flight connectivity check with animated status
 Benchmark selection modal

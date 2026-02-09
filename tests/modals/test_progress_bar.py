@@ -13,9 +13,9 @@ import pytest
 from textual.app import App, ComposeResult
 from textual.widgets import ProgressBar
 
-from satetoad.modals.scripts.job_list_modal import JobListItem, JobListModal
-from satetoad.modals.scripts.tabbed_evals_modal import JobListContent
-from satetoad.services.evals import Job
+from satellite.modals.scripts.job_list_modal import JobListItem, JobListModal
+from satellite.modals.scripts.tabbed_evals_modal import JobListContent
+from satellite.services.evals import Job
 
 
 def _make_job(

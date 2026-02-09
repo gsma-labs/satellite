@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from satetoad.services.submit.submit import GitHubClient, GitHubError
+from satellite.services.submit.submit import GitHubClient, GitHubError
 
 
 @pytest.fixture

@@ -1,1 +1,1 @@
-"""Integration tests for Satetoad TUI."""
+"""Integration tests for Satellite TUI."""

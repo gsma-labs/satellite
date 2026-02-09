@@ -7,9 +7,9 @@ from unittest.mock import patch
 
 import pytest
 
-from satetoad.services.evals import BENCHMARKS
-from satetoad.services.evals.job_manager import Job
-from satetoad.services.submit import (
+from satellite.services.evals import BENCHMARKS
+from satellite.services.evals.job_manager import Job
+from satellite.services.submit import (
     RECOGNIZED_PROVIDERS,
     REQUIRED_BENCHMARK_IDS,
     REQUIRED_SAMPLE_COUNTS,
@@ -330,7 +330,7 @@ class TestBuildSubmitPreview:
 
         job = _make_job("job_001")
         with patch(
-            "satetoad.services.submit.list_eval_logs", return_value=fake_logs
+            "satellite.services.submit.list_eval_logs", return_value=fake_logs
         ):
             preview = build_submit_preview(
                 job, "openai/gpt-4o", _all_scores(), tmp_path
@@ -346,7 +346,7 @@ class TestBuildSubmitPreview:
 
         job = _make_job("job_001")
         with patch(
-            "satetoad.services.submit.list_eval_logs", return_value=fake_logs
+            "satellite.services.submit.list_eval_logs", return_value=fake_logs
         ):
             preview = build_submit_preview(
                 job, "openai/gpt-4o", _all_scores(), tmp_path
@@ -366,7 +366,7 @@ class TestBuildSubmitPreview:
 
         job = _make_job("job_001")
         with patch(
-            "satetoad.services.submit.list_eval_logs", return_value=fake_logs
+            "satellite.services.submit.list_eval_logs", return_value=fake_logs
         ):
             preview = build_submit_preview(
                 job, "openai/gpt-4o", _all_scores(), tmp_path

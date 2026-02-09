@@ -16,7 +16,7 @@ The current code does `Path(str(log_ref))`, which stringifies the entire `EvalLo
 
 ## Location
 
-`src/satetoad/services/submit/__init__.py`, `build_submit_preview()`:
+`src/satellite/services/submit/__init__.py`, `build_submit_preview()`:
 
 ```python
 # Bug — str(log_ref) is the dataclass repr, not a path
@@ -57,8 +57,8 @@ for log_ref in list_eval_logs(str(job_dir), recursive=True):
 ## Reproduction
 
 ```python
-from satetoad.services.evals.job_manager import JobManager
-from satetoad.services.submit import get_eligible_models, build_submit_preview
+from satellite.services.evals.job_manager import JobManager
+from satellite.services.submit import get_eligible_models, build_submit_preview
 
 jm = JobManager()
 eligible = get_eligible_models(jm)

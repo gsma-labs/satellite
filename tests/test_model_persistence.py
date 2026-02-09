@@ -18,7 +18,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from satetoad.services.config import EnvConfigManager, ModelConfig
+from satellite.services.config import EnvConfigManager, ModelConfig
 
 
 class TestModelPersistence:

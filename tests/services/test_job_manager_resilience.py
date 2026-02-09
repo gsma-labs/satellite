@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from satetoad.services.evals import JobManager
+from satellite.services.evals import JobManager
 
 
 class TestJobManagerFolderDeletion:
@@ -48,7 +48,7 @@ class TestJobManagerFolderDeletion:
         self, tmp_path: Path, sample_model_config: list
     ) -> None:
         """create_job() should recreate folder if deleted."""
-        from satetoad.services.config import EvalSettings
+        from satellite.services.config import EvalSettings
 
         jobs_dir = tmp_path / "jobs"
         jobs_dir.mkdir()

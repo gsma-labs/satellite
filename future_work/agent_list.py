@@ -8,7 +8,7 @@ from textual.message import Message
 from textual.reactive import reactive
 from textual.widget import Widget
 
-from satetoad.widgets.agent_item import AgentItem
+from satellite.widgets.agent_item import AgentItem
 
 
 class AgentList(containers.VerticalScroll, can_focus=True):

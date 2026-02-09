@@ -1,14 +1,14 @@
-# Satetoad
+# Satellite
 
 **Open Telco Evaluation Suite** — A TUI for benchmarking LLMs on telecom tasks.
 
-<img src="docs/demo.gif" alt="Satetoad demo" width="600">
+<img src="docs/demo.gif" alt="Satellite demo" width="600">
 
 ## Quick Start
 
 ### 1. Install uv
 
-Satetoad uses [uv](https://docs.astral.sh/uv/getting-started/installation/) as its package manager. Install it first:
+Satellite uses [uv](https://docs.astral.sh/uv/getting-started/installation/) as its package manager. Install it first:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -17,17 +17,17 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### 2. Clone and setup
 
 ```bash
-git clone https://github.com/gsma-labs/satetoad.git
-cd satetoad
+git clone https://github.com/gsma-labs/satellite.git
+cd satellite
 make setup
 ```
 
-`make setup` installs Python 3.13, all dependencies, and registers the `satetoad` command.
+`make setup` installs Python 3.13, all dependencies, and registers the `satellite` command.
 
 ### 3. Run
 
 ```bash
-uv run satetoad
+uv run satellite
 ```
 
 ## What You Can Do
@@ -58,7 +58,7 @@ Submit your evaluation results to [gsma-labs/leaderboard](https://github.com/gsm
 
 ## Supported Models
 
-Satetoad supports all [Inspect-compatible model providers](https://inspect.aisi.org.uk/models.html) — including OpenAI, Anthropic, Google, Mistral, and more. Configure your model and API keys through the TUI.
+Satellite supports all [Inspect-compatible model providers](https://inspect.aisi.org.uk/models.html) — including OpenAI, Anthropic, Google, Mistral, and more. Configure your model and API keys through the TUI.
 
 ## Submission Setup
 

@@ -1,11 +1,11 @@
 # How to Add New Evaluations
 
-This guide explains how new evaluations flow from the `otelcos/evals` repository into the satetoad TUI.
+This guide explains how new evaluations flow from the `otelcos/evals` repository into the satellite TUI.
 
 ## Architecture Overview
 
 ```
-otelcos/evals                          satetoad
+otelcos/evals                          satellite
 ┌─────────────────────┐               ┌─────────────────────────────┐
 │ src/evals/          │               │ services/eval_registry.py   │
 │   _registry.py      │──imports──────│   EVAL_METADATA             │
@@ -23,7 +23,7 @@ otelcos/evals                          satetoad
 ## When a New Eval is Added to otelcos/evals
 
 1. **Automatic**: The eval ID appears in `evals._registry.__all__`
-2. **Manual**: You must add metadata to satetoad's `EVAL_METADATA`
+2. **Manual**: You must add metadata to satellite's `EVAL_METADATA`
 
 ## Step-by-Step: Adding a New Eval
 
@@ -32,13 +32,13 @@ otelcos/evals                          satetoad
 After otelcos/evals adds a new evaluation, update your dependencies:
 
 ```bash
-cd satetoad
+cd satellite
 uv sync --upgrade-package evals
 ```
 
 ### Step 2: Add Metadata to eval_registry.py
 
-Open `src/satetoad/services/eval_registry.py` and add an entry to `EVAL_METADATA`:
+Open `src/satellite/services/eval_registry.py` and add an entry to `EVAL_METADATA`:
 
 ```python
 EVAL_METADATA: dict[str, dict] = {
@@ -55,10 +55,10 @@ EVAL_METADATA: dict[str, dict] = {
 
 ### Step 3: Verify
 
-Run satetoad and check:
+Run satellite and check:
 
 ```bash
-uv run python -m satetoad
+uv run python -m satellite
 ```
 
 1. Press `2` (Evals) → The new eval should appear in the list
@@ -87,7 +87,7 @@ Common patterns:
 
 ## What Happens Without Metadata
 
-If an eval exists in the registry but lacks metadata in satetoad:
+If an eval exists in the registry but lacks metadata in satellite:
 
 1. A warning is logged: `No metadata for eval 'new_eval_id' - add to EVAL_METADATA`
 2. The eval is **not shown** in the UI
@@ -98,7 +98,7 @@ If an eval exists in the registry but lacks metadata in satetoad:
 Suppose otelcos/evals adds a new `teleconfig` evaluation:
 
 ```python
-# In src/satetoad/services/eval_registry.py
+# In src/satellite/services/eval_registry.py
 
 EVAL_METADATA: dict[str, dict] = {
     "teleqna": { ... },
