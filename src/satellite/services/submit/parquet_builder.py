@@ -25,6 +25,22 @@ MODEL_CARDS_DIR = "model_cards"
 # Parquet columns in leaderboard order
 SCORE_COLUMNS = ("teleqna", "telelogs", "telemath", "3gpp_tsg", "teletables")
 
+_PATH_TRAVERSAL_PATTERNS = ("..", "/", "\\")
+
+
+def _validate_safe_path_component(name: str) -> str:
+    """Reject path traversal sequences in a filename component.
+
+    Raises:
+        ValueError: If name contains '..', '/', or backslash.
+    """
+    for pattern in _PATH_TRAVERSAL_PATTERNS:
+        if pattern in name:
+            raise ValueError(
+                f"Unsafe character '{pattern}' in model directory name: {name}"
+            )
+    return name
+
 
 def build_model_card_parquet(preview: SubmitPreview) -> tuple[str, bytes]:
     """Build a parquet file matching the leaderboard schema.
@@ -40,8 +56,10 @@ def build_model_card_parquet(preview: SubmitPreview) -> tuple[str, bytes]:
         Tuple of (remote_path, parquet_bytes) ready for upload.
 
     Raises:
-        ValueError: If no valid benchmark scores can be extracted.
+        ValueError: If no valid benchmark scores can be extracted,
+            or if the model directory name contains unsafe path characters.
     """
+    safe_dir_name = _validate_safe_path_component(preview.model_dir_name)
     benchmark_scores = _collect_benchmark_scores(preview.log_files)
 
     if not benchmark_scores:
@@ -51,7 +69,7 @@ def build_model_card_parquet(preview: SubmitPreview) -> tuple[str, bytes]:
     row = _build_row(model_display, benchmark_scores)
     parquet_bytes = _write_parquet(row)
 
-    remote_path = f"{MODEL_CARDS_DIR}/{preview.model_dir_name}.parquet"
+    remote_path = f"{MODEL_CARDS_DIR}/{safe_dir_name}.parquet"
     return (remote_path, parquet_bytes)
 
 

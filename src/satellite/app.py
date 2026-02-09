@@ -102,7 +102,7 @@ class SatelliteApp(App):
                 stdin=subprocess.DEVNULL,
                 start_new_session=True,
             )
-        except (FileNotFoundError, PermissionError, subprocess.SubprocessError) as exc:
+        except (FileNotFoundError, OSError, subprocess.SubprocessError) as exc:
             self.notify(f"Could not launch inspect view: {exc}", severity="warning")
             return
 
@@ -134,14 +134,17 @@ class SatelliteApp(App):
 
     def _signal_process_group(self, sig: signal.Signals) -> None:
         """Send a signal to the view process group, falling back to direct signal."""
+        if self._view_process is None:
+            return
         try:
             os.killpg(os.getpgid(self._view_process.pid), sig)
-        except (ProcessLookupError, PermissionError, OSError):
+        except (ProcessLookupError, OSError):
             if sig == signal.SIGTERM:
                 self._view_process.terminate()
                 return
             if sig == signal.SIGKILL:
                 self._view_process.kill()
+                return
 
     def _wait_for_exit(self) -> bool:
         """Wait for the view process to exit within the shutdown timeout.

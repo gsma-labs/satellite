@@ -123,6 +123,14 @@ class TestParquetSchema:
         expected = {"model", "teleqna", "telelogs", "telemath", "3gpp_tsg", "teletables", "date"}
         assert set(table.column_names) == expected
 
+    def test_schema_column_order(self) -> None:
+        """Verify columns are in the order expected by the leaderboard."""
+        _, parquet_bytes = build_model_card_parquet(_make_preview())
+
+        table = _read_parquet(parquet_bytes)
+        expected_order = ["model", "teleqna", "telelogs", "telemath", "3gpp_tsg", "teletables", "date"]
+        assert table.column_names == expected_order
+
     def test_single_row(self) -> None:
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
@@ -234,4 +242,19 @@ class TestErrorCases:
             patch(MOCK_PATCH_TARGET, side_effect=mock_read),
             pytest.raises(ValueError, match="No valid benchmark scores"),
         ):
+            build_model_card_parquet(preview)
+
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            pytest.param("../etc/passwd", id="dot_dot_slash"),
+            pytest.param("model/../../escape", id="embedded_traversal"),
+            pytest.param("model\\name", id="backslash"),
+        ],
+    )
+    def test_path_traversal_rejected(self, bad_name: str) -> None:
+        """model_dir_name with path traversal sequences must raise ValueError."""
+        preview = _make_preview(model_dir_name=bad_name)
+
+        with pytest.raises(ValueError, match="Unsafe character"):
             build_model_card_parquet(preview)
