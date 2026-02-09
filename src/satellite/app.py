@@ -44,7 +44,7 @@ class SatelliteApp(App):
 
     # Terminal tab title (reactive to ensure driver is ready)
     terminal_title: var[str] = var("Satellite")
-    terminal_title_icon: var[str] = var("🛰️")
+    terminal_title_icon: var[str] = var("📡")
 
     BINDINGS = [
         Binding("f1", "toggle_help", "Help"),

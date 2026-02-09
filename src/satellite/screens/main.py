@@ -162,7 +162,7 @@ class MainScreen(Screen):
     def _get_info(self) -> str:
         """Generate app info text."""
         return f"""\
-🛰️ [bold]{APP_INFO["name"]}[/bold] [dim]v{APP_INFO["version"]}[/dim]  [@click=screen.open_logs][underline]Logs[/underline][/]
+📡 [bold]{APP_INFO["name"]}[/bold] [dim]v{APP_INFO["version"]}[/dim]  [@click=screen.open_logs][underline]Logs[/underline][/]
 [#50FA7B]{APP_INFO["tagline"]}[/#50FA7B]
 
 
