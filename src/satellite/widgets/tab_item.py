@@ -1,6 +1,6 @@
 """TabItem - Single tab in a tab header.
 
-Follows the EvalsOptionItem pattern with click handling and messages.
+Click handling and message-based selection.
 """
 
 from textual import events

@@ -250,8 +250,6 @@ __all__ = [
     "PROVIDERS_BY_CATEGORY",
     "MODEL_PROVIDERS",
     "APP_INFO",
-    "AGENTS",
-    "AGENTS_BY_SHORTCUT",
 ]
 
 # Flattened list of all providers (for backward compatibility)
@@ -265,68 +263,4 @@ APP_INFO = {
     "version": "0.1.0",
     "tagline": "The central controller for all telecom evaluations.",
     "subtitle": "Developed by GSMA Open-Telco AI",
-}
-
-# Agent data - matching Toad's "Choose your fighter" design
-AGENTS = [
-    {
-        "id": "react",
-        "name": "React",
-        "author_name": "Inspect AI",
-        "description": "Minimal general-purpose agent based on ReAct paper.",
-        "type": "general",
-        "shortcut": "8",
-    },
-    {
-        "id": "claude-code",
-        "name": "Claude Code",
-        "author_name": "Anthropic",
-        "description": "Unleash Claude's raw power directly in your terminal.",
-        "type": "coding",
-        "shortcut": "9",
-    },
-    {
-        "id": "codex-cli",
-        "name": "Codex CLI",
-        "author_name": "OpenAI",
-        "description": "Lightweight coding agent by OpenAI that runs in your terminal.",
-        "type": "coding",
-        "shortcut": "a",
-    },
-    {
-        "id": "gemini-cli",
-        "name": "Gemini CLI",
-        "author_name": "Google",
-        "description": "Query and edit large codebases, automate complex workflows.",
-        "type": "coding",
-        "shortcut": "b",
-    },
-    {
-        "id": "openhand",
-        "name": "OpenHands",
-        "author_name": "OpenHands",
-        "description": "Multi-purposes AI agents with a strong focus in community.",
-        "type": "mix",
-        "shortcut": "d",
-    },
-    {
-        "id": "opencode",
-        "name": "OpenCode",
-        "author_name": "Anomaly",
-        "description": "The Open-Source coding agent",
-        "type": "coding",
-        "shortcut": "e",
-    },
-    {
-        "id": "kimi-cli",
-        "name": "Kimi CLI",
-        "author_name": "Moonshot AI",
-        "description": "A CLI agent that uses Kimi models to help you with software dev tasks.",
-        "type": "coding",
-    },
-]
-
-# Precomputed lookup for quick launch bindings (only agents with shortcuts)
-AGENTS_BY_SHORTCUT: dict[str, dict] = {
-    agent["shortcut"]: agent for agent in AGENTS if "shortcut" in agent
 }

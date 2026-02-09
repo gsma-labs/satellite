@@ -343,25 +343,11 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         if cred_type != "base_url":
             # API keys managed via Configuration (press 'c'), not here
             credential = ""
-            # Validate model name and return config
-            if not model:
-                self.notify("Model name is required", severity="error")
-                self.query_one("#model-input", Input).focus()
+        else:
+            if not self._validate_base_url_credential(provider_data, credential):
                 return None
 
-            if not self._validate_model_name(model):
-                return None
-
-            return ModelConfig(
-                provider=provider_id,
-                api_key=credential,  # Empty for api_key types, URL for base_url
-                model=model,
-            )
-
-        if not self._validate_base_url_credential(provider_data, credential):
-            return None
-
-        # Validate model name
+        # Shared: validate model name and create config
         if not model:
             self.notify("Model name is required", severity="error")
             self.query_one("#model-input", Input).focus()
@@ -372,7 +358,7 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
         return ModelConfig(
             provider=provider_id,
-            api_key=credential,  # Empty for api_key types, URL for base_url
+            api_key=credential,
             model=model,
         )
 
