@@ -168,7 +168,7 @@ class MainScreen(Screen):
 
 
 
-[dim]Developed by [@click=screen.open_site][underline]GSMA Labs[/underline][/][/dim]
+[dim]Developed by [@click=screen.open_site][underline]GSMA[/underline][/][/dim]
 """
 
     def action_open_logs(self) -> None:
@@ -178,7 +178,7 @@ class MainScreen(Screen):
         webbrowser.open("http://localhost:7575")
 
     def action_open_site(self) -> None:
-        """Open the GSMA Labs website."""
+        """Open the GSMA website."""
         import webbrowser
 
         webbrowser.open("https://www.gsma.com/")
