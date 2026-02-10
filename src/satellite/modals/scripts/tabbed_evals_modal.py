@@ -11,7 +11,7 @@ Supports multi-model evaluation:
 from collections.abc import Callable
 from typing import ClassVar
 
-from textual import events, on
+from textual import events, on, work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import HorizontalGroup, Vertical, VerticalScroll
@@ -153,12 +153,20 @@ class JobListContent(Vertical):
         """Called by timer - refresh only if this tab is visible."""
         if not self.has_class("-active"):
             return
-        self.refresh_jobs()
+        self._refresh_jobs_in_thread()
 
     def refresh_jobs(self) -> None:
-        """Refresh the job list from storage with in-place updates."""
-        fresh_jobs = self._job_manager.list_jobs(limit=20)
+        """Public entry point for refreshing the job list (non-blocking)."""
+        self._refresh_jobs_in_thread()
 
+    @work(exclusive=True, thread=True)
+    def _refresh_jobs_in_thread(self) -> None:
+        """Fetch jobs on a worker thread to avoid blocking the event loop."""
+        fresh_jobs = self._job_manager.list_jobs(limit=20)
+        self.app.call_from_thread(self._apply_job_refresh, fresh_jobs)
+
+    def _apply_job_refresh(self, fresh_jobs: list[Job]) -> None:
+        """Apply fetched job data to the UI (must run on main thread)."""
         if self._job_ids_changed(fresh_jobs):
             self._jobs = fresh_jobs
             self._rebuild_job_list()

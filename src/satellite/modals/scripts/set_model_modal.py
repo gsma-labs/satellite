@@ -19,6 +19,7 @@ from textual import events, on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, HorizontalGroup, VerticalGroup
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static
 
@@ -193,6 +194,29 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
                 return provider
         return None
 
+    def _build_hint_text(self, provider: dict) -> str:
+        """Build the hint text for a provider's prefix and API key status."""
+        prefix = provider.get("model_prefix", "")
+        self._current_prefix = prefix
+
+        hints = []
+        if prefix:
+            hints.append(f"Prefix: {prefix}")
+
+        env_var = provider.get("env_var", "")
+        if provider.get("credential_type", "api_key") == "api_key" and env_var:
+            key_exists = (
+                env_var in self._env_manager.get_all_vars()
+                if self._env_manager
+                else False
+            )
+            if not key_exists:
+                hints.append(f"[yellow]⚠ {env_var} not set (press 'c')[/yellow]")
+            else:
+                hints.append(f"[green]✓ {env_var}[/green]")
+
+        return " | ".join(hints) if hints else "Enter full model name"
+
     def _update_prefix_hint(self) -> None:
         """Update the model prefix hint based on selected provider."""
         select = self.query_one("#provider-select", Select)
@@ -203,35 +227,11 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
             return
 
         provider = self._get_provider_data(select.value)
-
         if not provider:
             hint_widget.update("[dim]Enter full model name[/]")
             return
 
-        prefix = provider.get("model_prefix", "")
-        self._current_prefix = prefix
-
-        hints = []
-        if prefix:
-            hints.append(f"Prefix: {prefix}")
-
-        # Show API key status for providers that need API keys
-        env_var = provider.get("env_var", "")
-        if provider.get("credential_type", "api_key") == "api_key" and env_var:
-            key_exists = (
-                env_var in self._env_manager.get_all_vars()
-                if self._env_manager
-                else False
-            )
-            if not key_exists:
-                hints.append(f"[yellow]⚠ {env_var} not set (press 'c')[/yellow]")
-                hint_text = " | ".join(hints) if hints else "Enter full model name"
-                hint_widget.update(hint_text)
-                return
-            hints.append(f"[green]✓ {env_var}[/green]")
-
-        hint_text = " | ".join(hints) if hints else "Enter full model name"
-        hint_widget.update(hint_text)
+        hint_widget.update(self._build_hint_text(provider))
 
     def _update_credential_field_for_current_provider(self) -> None:
         """Update credential field based on currently selected provider."""
@@ -314,6 +314,11 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
             return
         self._env_manager.save_models(self._snapshot)
 
+    def _notify_and_focus(self, message: str, widget_id: str, severity: str = "error") -> None:
+        """Show a notification and focus a widget."""
+        self.notify(message, severity=severity)
+        self.query_one(widget_id).focus()
+
     def _validate_and_create_config(self) -> ModelConfig | None:
         """Validate inputs and create a ModelConfig.
 
@@ -327,14 +332,12 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         model = self.query_one("#model-input", Input).value.strip()
 
         if not provider_id:
-            self.notify("Please select a provider", severity="error")
-            self.query_one("#provider-select", Select).focus()
+            self._notify_and_focus("Please select a provider", "#provider-select")
             return None
 
         provider_data = self._get_provider_data(provider_id)
         if not provider_data:
-            self.notify("Invalid provider selected", severity="error")
-            self.query_one("#provider-select", Select).focus()
+            self._notify_and_focus("Invalid provider selected", "#provider-select")
             return None
 
         cred_type = provider_data.get("credential_type", "api_key")
@@ -349,8 +352,7 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
         # Shared: validate model name and create config
         if not model:
-            self.notify("Model name is required", severity="error")
-            self.query_one("#model-input", Input).focus()
+            self._notify_and_focus("Model name is required", "#model-input")
             return None
 
         if not self._validate_model_name(model):
@@ -430,13 +432,11 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
             return True
 
         if not url.startswith(("http://", "https://")):
-            self.notify("URL must start with http:// or https://", severity="error")
-            self.query_one("#credential-input", Input).focus()
+            self._notify_and_focus("URL must start with http:// or https://", "#credential-input")
             return False
 
         if len(url) > 500:
-            self.notify("URL is too long", severity="error")
-            self.query_one("#credential-input", Input).focus()
+            self._notify_and_focus("URL is too long", "#credential-input")
             return False
 
         return True
@@ -458,8 +458,7 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
                 if provider_data
                 else "Base URL"
             )
-            self.notify(f"{label.rstrip(':')} is required", severity="error")
-            self.query_one("#credential-input", Input).focus()
+            self._notify_and_focus(f"{label.rstrip(':')} is required", "#credential-input")
             return False
 
         if credential and not self._validate_base_url(credential):
@@ -474,14 +473,12 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
         """
         # Length check
         if len(model) > 200:
-            self.notify("Model name is too long", severity="error")
-            self.query_one("#model-input", Input).focus()
+            self._notify_and_focus("Model name is too long", "#model-input")
             return False
 
         # Model names should be alphanumeric with limited special chars
         if not re.match(r"^[a-zA-Z0-9._:/-]+$", model):
-            self.notify("Model name contains invalid characters", severity="error")
-            self.query_one("#model-input", Input).focus()
+            self._notify_and_focus("Model name contains invalid characters", "#model-input")
             return False
 
         return True
@@ -490,24 +487,11 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
     def _get_current_field_index(self) -> int | None:
         """Get the index of the currently focused field."""
-        from textual.css.query import NoMatches
-
-        focused = self.app.focused
-        if focused is None:
+        if self.app.focused is None:
             return None
-
         for index, field_id in enumerate(self._FOCUSABLE_FIELDS):
-            try:
-                field = self.query_one(field_id)
-                # Check if focused widget is the field or a descendant of it
-                if focused is field:
-                    return index
-                # For Select widget, check if focus is on internal component
-                if hasattr(focused, "ancestors_with_self"):
-                    if field in focused.ancestors_with_self:
-                        return index
-            except NoMatches:
-                pass
+            if self._is_widget_focused(field_id):
+                return index
         return None
 
     def action_focus_next_field(self) -> None:
@@ -540,8 +524,6 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
     def on_key(self, event: events.Key) -> None:
         """Handle key events - intercept up/down/enter when dropdown is closed."""
-        from textual.css.query import NoMatches
-
         # Check if provider dropdown is expanded
         try:
             provider_select = self.query_one("#provider-select", Select)
@@ -570,8 +552,6 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
     def _is_widget_focused(self, widget_id: str) -> bool:
         """Check if a widget (or its child) has focus."""
-        from textual.css.query import NoMatches
-
         try:
             widget = self.query_one(widget_id)
             focused = self.app.focused

@@ -113,10 +113,7 @@ class EnvVarsModal(ModalScreen[bool]):
     def _refresh_list(self) -> None:
         """Refresh the variables list from .env."""
         vars_list = self.query_one("#vars-list", VerticalScroll)
-
-        # Remove all children
-        for child in list(vars_list.children):
-            child.remove()
+        vars_list.remove_children()
 
         # Re-populate
         env_vars = self._env_manager.get_all_vars()

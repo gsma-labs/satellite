@@ -56,7 +56,6 @@ src/satellite/
 - New widgets go in `widgets/`, modals in `modals/`
 - Keep mock data in `examples/`
 - Use TCSS for styling (not inline styles)
-- Read `src/satellite/docs/WIDGET_PATTERNS.md` before creating new widgets
 
 ## Code Style
 

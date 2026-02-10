@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "A TUI for benchmarking LLMs on telecom tasks"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "GPL-3.0-or-later"
-authors = [{ name = "GSMA Labs" }]
+license = "AGPL-3.0-only"
+authors = [{ name = "GSMA" }]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
