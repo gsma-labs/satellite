@@ -44,7 +44,7 @@ class SatelliteApp(App):
 
     # Terminal tab title (reactive to ensure driver is ready)
     terminal_title: var[str] = var("Satellite")
-    terminal_title_icon: var[str] = var("🛰️")
+    terminal_title_icon: var[str] = var("📡")
 
     BINDINGS = [
         Binding("f1", "toggle_help", "Help"),
@@ -196,7 +196,43 @@ class SatelliteApp(App):
 
 
 def main() -> None:
-    """Entry point for the application."""
+    """Entry point for the application.
+
+    All multiprocessing and environment guards live here so they are
+    applied regardless of how the app is launched (console script,
+    ``python -m satellite``, or direct invocation).
+    """
+    # ─────────────────────────────────────────────────────────────────
+    # CRITICAL: Force 'spawn' method for multiprocessing BEFORE any
+    # HuggingFace or inspect-ai imports.  On Python 3.14+ the default
+    # 'fork' start method causes 'bad value(s) in fds_to_keep' errors
+    # when combined with threading (Textual worker threads).
+    # ─────────────────────────────────────────────────────────────────
+    import multiprocessing
+
+    try:
+        multiprocessing.set_start_method("spawn", force=True)
+    except RuntimeError:
+        pass  # Already set or not supported
+
+    # Disable HuggingFace parallelism / progress bars to avoid
+    # multiprocessing issues inside Textual's threading context.
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    os.environ.setdefault("HF_DATASETS_DISABLE_PROGRESS_BARS", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+
+    # ─────────────────────────────────────────────────────────────────
+    # CRITICAL: Warm up the multiprocessing resource tracker NOW,
+    # while we are still in the main thread.  Textual's terminal
+    # driver redirects file descriptors; if the resource tracker
+    # first launches inside a @work(thread=True) worker AFTER that,
+    # fork_exec fails with "bad value(s) in fds_to_keep" (the
+    # tracker's pipe FD becomes -1).  Creating a throwaway Semaphore
+    # forces the tracker process to start with valid FDs.
+    # ─────────────────────────────────────────────────────────────────
+    _warmup_sem = multiprocessing.Semaphore(1)
+    del _warmup_sem
+
     # ─────────────────────────────────────────────────────────────────
     # CRITICAL: Import ALL dependencies BEFORE Textual takes terminal.
     # inspect-ai has terminal handling that conflicts with Textual's driver.

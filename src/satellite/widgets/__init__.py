@@ -5,10 +5,6 @@ Evaluation interface widgets:
 - grid_select.py: Navigable grid selection container
 - eval_box.py: Evaluation action boxes with selection highlighting
 - eval_list.py: To-do style list with arrow key navigation
-
-Utility widgets:
-- throbber.py: Custom Visual render, animation
-- flash.py: Timer-based visibility toggle
 """
 
 # Evaluation interface widgets
@@ -16,16 +12,6 @@ from satellite.widgets.julia_set import JuliaSet
 from satellite.widgets.grid_select import GridSelect
 from satellite.widgets.eval_box import EvalBox
 from satellite.widgets.eval_list import EvalList, EvalListItem
-
-# Utility widgets
-from satellite.widgets.throbber import Throbber
-from satellite.widgets.flash import Flash
-from satellite.widgets.checklist_item import ChecklistItem
-
-# Evals container widgets
-from satellite.widgets.badge_label import BadgeLabel
-from satellite.widgets.eval_sub_option import EvalSubOption
-from satellite.widgets.evals_container import EvalsContainer
 
 # Tab widgets
 from satellite.widgets.tab_item import TabItem
@@ -50,14 +36,6 @@ __all__ = [
     "EvalBox",
     "EvalList",
     "EvalListItem",
-    # Utility
-    "Throbber",
-    "Flash",
-    "ChecklistItem",
-    # Evals container
-    "BadgeLabel",
-    "EvalSubOption",
-    "EvalsContainer",
     # Tab widgets
     "TabItem",
     "TabHeader",

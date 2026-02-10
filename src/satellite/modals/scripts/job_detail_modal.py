@@ -17,6 +17,7 @@ INSPECT_TRACES_BASE_URL = "http://127.0.0.1:7575/#/logs"
 POLL_INTERVAL_SECONDS = 2.0
 TERMINAL_STATUSES = frozenset({"success", "error", "cancelled"})
 PENDING_COLOR = "#6272A4"  # Dracula comment color for pending/loading states
+PENDING_PLACEHOLDER = f"[{PENDING_COLOR}]--[/]"
 
 STATUS_COLORS: dict[str, str] = {
     "success": "#50FA7B",
@@ -99,19 +100,17 @@ class JobDetailModal(ModalScreen[None]):
 
     def _compose_metadata(self) -> ComposeResult:
         """Compose aggregated metadata as a compact 2x2 grid with placeholder IDs."""
-        placeholder = f"[{PENDING_COLOR}]--[/]"
-
         with Horizontal(classes="metadata-row"):
             yield Static("Status ", classes="meta-label")
-            yield Static(placeholder, id="val-status", classes="meta-value")
+            yield Static(PENDING_PLACEHOLDER, id="val-status", classes="meta-value")
             yield Static("Duration ", classes="meta-label")
-            yield Static(placeholder, id="val-duration", classes="meta-value")
+            yield Static(PENDING_PLACEHOLDER, id="val-duration", classes="meta-value")
 
         with Horizontal(classes="metadata-row"):
             yield Static("Samples ", classes="meta-label")
-            yield Static(placeholder, id="val-samples", classes="meta-value")
+            yield Static(PENDING_PLACEHOLDER, id="val-samples", classes="meta-value")
             yield Static("Tokens ", classes="meta-label")
-            yield Static(placeholder, id="val-tokens", classes="meta-value")
+            yield Static(PENDING_PLACEHOLDER, id="val-tokens", classes="meta-value")
 
     def _compose_traces_link(self) -> ComposeResult:
         """Compose a clickable link to open the Inspect AI trace viewer."""
@@ -214,6 +213,12 @@ class JobDetailModal(ModalScreen[None]):
         for benchmark in benchmarks:
             header.mount(Static(self._short_name(benchmark), classes="scores-cell"))
 
+    def _score_cell(self, score: float | None) -> Static:
+        """Create a score cell widget for the scores table."""
+        if score is None:
+            return Static(PENDING_PLACEHOLDER, classes="scores-cell score-pending")
+        return Static(f"[#50FA7B]{score:.2f}[/]", classes="scores-cell")
+
     def _mount_data_rows(
         self, table: ScrollableContainer, models: list[str], benchmarks: list[str]
     ) -> None:
@@ -225,18 +230,7 @@ class JobDetailModal(ModalScreen[None]):
             row.mount(Static(self._short_name(model), classes="scores-model"))
 
             for benchmark in benchmarks:
-                score = model_scores.get(benchmark)
-                if score is None:
-                    row.mount(
-                        Static(
-                            f"[{PENDING_COLOR}]--[/]",
-                            classes="scores-cell score-pending"
-                        )
-                    )
-                    continue
-                row.mount(
-                    Static(f"[#50FA7B]{score:.2f}[/]", classes="scores-cell")
-                )
+                row.mount(self._score_cell(model_scores.get(benchmark)))
 
     def _compose_scores_table(self) -> ComposeResult:
         """Compose the initial (empty) scores table container."""

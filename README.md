@@ -1,8 +1,19 @@
-# Satellite
-
-**Open Telco Evaluation Suite** — A TUI for benchmarking LLMs on telecom tasks.
-
 <img src="docs/demo.gif" alt="Satellite demo" width="600">
+
+📡 wraps [Inspect AI](https://inspect.aisi.org.uk/) in a terminal interface
+that lets you run the telecom benchmarks from [gsma-labs/evals](https://github.com/gsma-labs/evals),
+track progress in real time, and submit results to the
+[community leaderboard](https://github.com/gsma-labs/leaderboard) —
+all without leaving your terminal.
+
+> [!NOTE]
+> **This is a beta.** It will be full of bugs — you've been warned.
+>
+> The whole purpose of this TUI is to:
+> 1. **Make it easier to get into evals** — specially for people coming from telecommunications who are getting into LLM evaluations for the first time
+> 2. **Give you a place to submit to the leaderboard easily** — run the benchmarks, see your scores, submit with a few keystrokes
+>
+> If you want to experiment hardcore, use a bunch of different parameters, or run evaluations at super scale on workstations or clusters — this might NOT be the best version for you. Stick to [gsma-labs/evals](https://github.com/gsma-labs/evals) and hack your way through [Inspect AI](https://inspect.aisi.org.uk/) directly.
 
 ## Quick Start
 
@@ -68,3 +79,32 @@ To submit results, you need a GitHub token with the following permissions scoped
 - `pull_requests:write`
 
 All five benchmarks must be completed with the required sample counts before submission is allowed.
+
+## Development
+
+| Command        | Description              |
+|----------------|--------------------------|
+| `make setup`   | Install dependencies     |
+| `make test`    | Run tests                |
+| `make lint`    | Lint with Ruff           |
+| `make format`  | Auto-format with Ruff    |
+| `make run`     | Launch the TUI           |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide.
+
+## Documentation
+
+- [Adding Evaluations](docs/how_to_add_new_evals.md) — how to register new benchmarks
+- [Contributing](CONTRIBUTING.md) — development setup and code style
+
+## Acknowledgments
+
+Satellite's layout and TUI architecture were heavily inspired by
+[Toad](https://github.com/batrachianai/toad), a beautiful Textual-based
+terminal interface for AI coding agents. Huge kudos to the Toad team —
+their work showed us how good a terminal UI can feel, and gave us
+a strong foundation to build on.
+
+## License
+
+[AGPL-3.0](LICENSE)

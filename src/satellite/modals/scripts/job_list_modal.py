@@ -5,7 +5,7 @@ Lists all jobs and allows navigation to individual job details.
 
 from typing import ClassVar
 
-from textual import events
+from textual import events, work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.color import Color, Gradient
@@ -310,9 +310,19 @@ class JobListModal(ModalScreen[str | None]):
             self._refresh_timer.stop()
 
     def _refresh_jobs(self) -> None:
-        """Poll job manager and update items in-place."""
-        fresh_jobs = self._job_manager.list_jobs(limit=20)
+        """Poll trigger — kicks off a worker thread to avoid blocking the UI."""
+        self._refresh_jobs_in_thread()
 
+    @work(exclusive=True, thread=True)
+    def _refresh_jobs_in_thread(self) -> None:
+        """Fetch jobs on a worker thread to avoid blocking the event loop."""
+        fresh_jobs = self._job_manager.list_jobs(limit=20)
+        self.app.call_from_thread(self._apply_job_refresh, fresh_jobs)
+
+    def _apply_job_refresh(self, fresh_jobs: list[Job]) -> None:
+        """Apply fetched job data to the UI (must run on main thread)."""
+        if not self.is_mounted:
+            return
         if self._job_ids_changed(fresh_jobs):
             self._jobs = fresh_jobs
             self._rebuild_job_list()

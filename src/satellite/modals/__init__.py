@@ -14,7 +14,6 @@ from satellite.services.submit import SubmitResult
 from .scripts.set_model_modal import SetModelModal
 from .scripts.leaderboard_modal import LeaderboardModal
 from .scripts.submit_modal import SubmitModal
-from .scripts.evals_modal import EvalsModal, EvalsOptionItem
 from .scripts.job_list_modal import JobListModal, JobListItem
 from .scripts.job_detail_modal import JobDetailModal
 from .scripts.tabbed_evals_modal import TabbedEvalsModal
@@ -26,8 +25,6 @@ __all__ = [
     "LeaderboardModal",
     "SubmitModal",
     "SubmitResult",
-    "EvalsModal",
-    "EvalsOptionItem",
     "JobListModal",
     "JobListItem",
     "JobDetailModal",

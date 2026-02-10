@@ -90,6 +90,8 @@ class LeaderboardModal(ModalScreen[None]):
             self.app.call_from_thread(self._show_error, str(e))
 
     def _show_leaderboard(self, entries: list[LeaderboardEntry]) -> None:
+        if not self.is_mounted:
+            return
         self._error = None
 
         self.query_one("#loading-container").display = False
@@ -132,6 +134,8 @@ class LeaderboardModal(ModalScreen[None]):
         return f"{score:.1f}"
 
     def _show_error(self, message: str) -> None:
+        if not self.is_mounted:
+            return
         self._error = message
 
         self.query_one("#loading-container").display = False

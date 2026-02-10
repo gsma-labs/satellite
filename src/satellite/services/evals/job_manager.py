@@ -30,16 +30,6 @@ def _map_log_status(log: EvalLog) -> JobStatus:
     return log.status
 
 
-def _has_eval_metadata(log: EvalLog) -> bool:
-    """Check whether the log has enough metadata to extract task/model info."""
-    return bool(log.eval and log.eval.task and log.eval.model)
-
-
-def _task_name(log: EvalLog) -> str:
-    """Extract the short task name from an eval log (e.g. 'evals/teleqna' -> 'teleqna')."""
-    return log.eval.task.rsplit("/", 1)[-1]
-
-
 def _aggregate_progress(
     model_dirs: Iterable[Path],
 ) -> tuple[JobStatus, int, int, int, int]:
@@ -102,12 +92,6 @@ def read_status(model_dir: Path) -> JobStatus:
 
     statuses = [_map_log_status(read_eval_log(p, header_only=True)) for p in logs]
     return min(statuses, key=STATUS_PRIORITY.get)
-
-
-def aggregate_status(model_dirs: Iterable[Path]) -> JobStatus:
-    """Aggregate status across all model directories."""
-    statuses = [read_status(d) for d in model_dirs]
-    return min(statuses, key=STATUS_PRIORITY.get, default="running")
 
 
 def extract_accuracy(log: EvalLog) -> tuple[str, str, float] | None:

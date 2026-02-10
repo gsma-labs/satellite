@@ -24,6 +24,7 @@ Layout:
 All options open as modal overlays (Toad pattern) for a consistent UX.
 """
 
+from functools import partialmethod
 from pathlib import Path
 
 from textual import on, work
@@ -88,20 +89,11 @@ class MainScreen(Screen):
         Binding("?", "help", "Help", show=False),
     ]
 
-    # Store configured models (set via modal, supports multi-model)
-    _configured_models: list[ModelConfig] = []
-
-    # Store evaluation results (benchmark_id -> score)
-    _eval_results: dict[str, float] | None = None
-
-    # Job manager for persistent job storage
-    _job_manager: JobManager | None = None
-
-    # Environment config manager for .env persistence
-    _env_config_manager: EnvConfigManager | None = None
-
-    # Eval settings manager for settings persistence
-    _settings_manager: EvalSettingsManager | None = None
+    _configured_models: list[ModelConfig]
+    _eval_results: dict[str, float] | None
+    _job_manager: JobManager | None
+    _env_config_manager: EnvConfigManager | None
+    _settings_manager: EvalSettingsManager | None
 
     def compose(self) -> ComposeResult:
         """Compose the evaluation interface layout.
@@ -112,7 +104,9 @@ class MainScreen(Screen):
         - "Models" heading with underline
         - Model category boxes (Lab APIs, Cloud APIs, Open Hosted, Open Local)
         """
-        # Initialize managers
+        self._configured_models = []
+        self._eval_results = None
+        self._env_config_manager = None
         self._job_manager = JobManager(DEFAULT_JOBS_DIR)
         self._settings_manager = EvalSettingsManager()
 
@@ -162,7 +156,7 @@ class MainScreen(Screen):
     def _get_info(self) -> str:
         """Generate app info text."""
         return f"""\
-🛰️ [bold]{APP_INFO["name"]}[/bold] [dim]v{APP_INFO["version"]}[/dim]  [@click=screen.open_logs][underline]Logs[/underline][/]
+📡 [bold]{APP_INFO["name"]}[/bold] [dim]v{APP_INFO["version"]}[/dim]  [@click=screen.open_logs][underline]Logs[/underline][/]
 [#50FA7B]{APP_INFO["tagline"]}[/#50FA7B]
 
 
@@ -241,29 +235,30 @@ class MainScreen(Screen):
         - If configs is not None: user saved, .env already up to date
         """
         if configs is None:
-            # User cancelled - .env already rolled back by modal, refresh in-memory
             self._load_models_from_env()
             return
 
-        # User saved - .env already up to date, just update in-memory
         self._configured_models = configs
+        self._notify_model_count(configs)
 
-        model_count = len(configs)
-        if model_count == 1:
-            self.notify(
-                f"Provider: {configs[0].provider}\nModel: {configs[0].model}",
-                title="Model Configured",
-            )
-            return
-
-        if model_count > 1:
-            model_names = ", ".join(c.model for c in configs[:3])
-            if model_count > 3:
-                model_names += f" (+{model_count - 3} more)"
-            self.notify(
-                f"{model_count} models configured:\n{model_names}",
-                title="Models Configured",
-            )
+    def _notify_model_count(self, configs: list[ModelConfig]) -> None:
+        """Show a notification summarizing configured models."""
+        match len(configs):
+            case 0:
+                return
+            case 1:
+                self.notify(
+                    f"Provider: {configs[0].provider}\nModel: {configs[0].model}",
+                    title="Model Configured",
+                )
+            case n:
+                model_names = ", ".join(c.model for c in configs[:3])
+                if n > 3:
+                    model_names += f" (+{n - 3} more)"
+                self.notify(
+                    f"{n} models configured:\n{model_names}",
+                    title="Models Configured",
+                )
 
     def _show_evals_modal(self) -> None:
         """Push the TabbedEvalsModal for running evals and viewing progress."""
@@ -362,21 +357,10 @@ class MainScreen(Screen):
         """Open Submit modal (quick key 3)."""
         self._show_submit_modal()
 
-    def action_goto_lab_apis(self) -> None:
-        """Open Lab APIs modal (quick key 4)."""
-        self._show_model_modal("lab-apis")
-
-    def action_goto_cloud_apis(self) -> None:
-        """Open Cloud APIs modal (quick key 5)."""
-        self._show_model_modal("cloud-apis")
-
-    def action_goto_open_hosted(self) -> None:
-        """Open Open (Hosted) modal (quick key 6)."""
-        self._show_model_modal("open-hosted")
-
-    def action_goto_open_local(self) -> None:
-        """Open Open (Local) modal (quick key 7)."""
-        self._show_model_modal("open-local")
+    action_goto_lab_apis = partialmethod(_show_model_modal, "lab-apis")
+    action_goto_cloud_apis = partialmethod(_show_model_modal, "cloud-apis")
+    action_goto_open_hosted = partialmethod(_show_model_modal, "open-hosted")
+    action_goto_open_local = partialmethod(_show_model_modal, "open-local")
 
     def action_help(self) -> None:
         """Show help."""

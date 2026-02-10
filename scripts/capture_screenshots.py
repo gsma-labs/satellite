@@ -25,7 +25,6 @@ from satellite.screens.main import MainScreen
 from satellite.screens.trajectories import TrajectoriesScreen
 from satellite.widgets.eval_box import EvalBox
 from satellite.widgets.eval_list import EvalList, EvalListItem
-from satellite.widgets.throbber import Throbber
 
 
 # Output directory

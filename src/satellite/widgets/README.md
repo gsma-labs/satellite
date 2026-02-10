@@ -9,8 +9,6 @@ This directory contains all custom widgets for satellite. Each widget demonstrat
 | **Conversation** | `conversation.py` | Composition, reactive vars |
 | **Prompt** | `prompt.py` | TextArea, Select, Messages |
 | **SideBar** | `sidebar.py` | Collapsible, CSS classes |
-| **Throbber** | `throbber.py` | Custom render |
-| **Flash** | `flash.py` | Timer, visibility |
 | **AgentResponse** | `agent_response.py` | Markdown wrapper |
 | **UserInput** | `user_input.py` | Static with prefix |
 | **Plan** | `plan.py` | List, status indicators |
@@ -71,13 +69,9 @@ self.query_one("#id", WidgetType) # By ID with type check
 ## Reading Order
 
 1. Start with **`user_input.py`** - simplest widget
-2. Move to **`flash.py`** - introduces timers
-3. Then **`throbber.py`** - custom rendering
-4. Then **`prompt.py`** - composition + messages
-5. Then **`conversation.py`** - brings it all together
+2. Then **`prompt.py`** - composition + messages
+3. Then **`conversation.py`** - brings it all together
 
 ## See Also
 
-- `docs/WIDGET_PATTERNS.md` - Detailed pattern explanations
-- `docs/EXTENDING.md` - How to add real functionality
 - Textual documentation: https://textual.textualize.io/
