@@ -167,6 +167,8 @@ class JobListContent(Vertical):
 
     def _apply_job_refresh(self, fresh_jobs: list[Job]) -> None:
         """Apply fetched job data to the UI (must run on main thread)."""
+        if not self.is_mounted:
+            return
         if self._job_ids_changed(fresh_jobs):
             self._jobs = fresh_jobs
             self._rebuild_job_list()
