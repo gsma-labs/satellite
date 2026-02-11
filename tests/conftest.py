@@ -24,6 +24,7 @@ def mock_popen() -> Generator[tuple[MagicMock, MagicMock], None, None]:
     with patch("satellite.app.subprocess.Popen") as popen_mock:
         process = MagicMock()
         process.poll.return_value = None  # Process running by default
+        process.pid = 99999  # Fake PID so os.getpgid() raises ProcessLookupError
         popen_mock.return_value = process
         yield popen_mock, process
 
