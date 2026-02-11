@@ -337,7 +337,26 @@ class TestBuildSubmitPreview:
             )
 
         assert len(preview.log_files) == 1
-        assert preview.log_files[0] == log_file
+        assert preview.log_files[0] == log_file.resolve()
+
+    def test_rejects_log_outside_job_dir(self, tmp_path: Path) -> None:
+        """Log paths that resolve outside the job directory are rejected."""
+        (tmp_path / "job_001").mkdir()
+        outside_file = tmp_path / "outside.json"
+        outside_file.write_text("{}")
+
+        uri = f"file://{outside_file}"
+        fake_logs = [FakeEvalLogInfo(name=uri)]
+
+        job = _make_job("job_001")
+        with patch(
+            "satellite.services.submit.list_eval_logs", return_value=fake_logs
+        ):
+            preview = build_submit_preview(
+                job, "openai/gpt-4o", _all_scores(), tmp_path
+            )
+
+        assert preview.log_files == []
 
     def test_skips_nonexistent_log_files(self, tmp_path: Path) -> None:
         """URIs pointing to missing files are excluded."""
@@ -356,8 +375,9 @@ class TestBuildSubmitPreview:
 
     def test_handles_percent_encoded_uri(self, tmp_path: Path) -> None:
         """Percent-encoded characters in URIs are decoded correctly."""
-        spaced_dir = tmp_path / "my dir"
-        spaced_dir.mkdir()
+        job_dir = tmp_path / "job_001"
+        spaced_dir = job_dir / "my dir"
+        spaced_dir.mkdir(parents=True)
         log_file = spaced_dir / "log.json"
         log_file.write_text("{}")
 
@@ -373,4 +393,4 @@ class TestBuildSubmitPreview:
             )
 
         assert len(preview.log_files) == 1
-        assert preview.log_files[0] == log_file
+        assert preview.log_files[0] == log_file.resolve()

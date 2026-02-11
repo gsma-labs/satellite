@@ -77,11 +77,14 @@ class JobDetails:
 
 def _parse_eval_set(eval_set_file: Path) -> tuple[str, list[str]] | None:
     """Parse eval-set.json and return (model, benchmarks) or None."""
-    data = json.loads(eval_set_file.read_text())
-    tasks = data.get("tasks", [])
-    if not tasks:
+    try:
+        data = json.loads(eval_set_file.read_text())
+        tasks = data.get("tasks", [])
+        if not tasks:
+            return None
+        return (tasks[0]["model"], [t["name"].rsplit("/", 1)[-1] for t in tasks])
+    except (json.JSONDecodeError, KeyError, TypeError):
         return None
-    return (tasks[0]["model"], [t["name"].rsplit("/", 1)[-1] for t in tasks])
 
 
 def read_status(model_dir: Path) -> JobStatus:
@@ -298,8 +301,11 @@ class JobManager:
         manifest_path = job_dir / "job-manifest.json"
         if not manifest_path.exists():
             return {}, 0
-        data = json.loads(manifest_path.read_text())
-        return data.get("evals", {}), data.get("total_evals", 0)
+        try:
+            data = json.loads(manifest_path.read_text())
+            return data.get("evals", {}), data.get("total_evals", 0)
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return {}, 0
 
     def _load_evals_from_eval_sets(
         self, job_dir: Path

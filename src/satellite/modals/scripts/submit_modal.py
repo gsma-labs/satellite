@@ -12,6 +12,7 @@ Uses CSS-driven state switching (same pattern as TabbedEvalsModal).
 from pathlib import Path
 from typing import ClassVar
 
+from rich.markup import escape
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -132,7 +133,7 @@ class SubmitModal(ModalScreen[SubmitResult | None]):
 
         for index, (job, model, scores) in enumerate(self._eligible_models):
             avg_score = sum(scores.values()) / len(scores) if scores else 0
-            label = f"{model}  [dim]({job.id}, {len(scores)} evals, avg {avg_score:.1%})[/dim]"
+            label = f"{escape(model)}  [dim]({job.id}, {len(scores)} evals, avg {avg_score:.1%})[/dim]"
             option_list.add_option(Option(label, id=str(index)))
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
@@ -148,9 +149,9 @@ class SubmitModal(ModalScreen[SubmitResult | None]):
             return
 
         info_lines = [
-            f"[bold]Model:[/bold] {self._preview.model}",
-            f"[bold]Provider:[/bold] {self._preview.provider}",
-            f"[bold]Directory:[/bold] {self._preview.model_dir_name}",
+            f"[bold]Model:[/bold] {escape(self._preview.model)}",
+            f"[bold]Provider:[/bold] {escape(self._preview.provider)}",
+            f"[bold]Directory:[/bold] {escape(self._preview.model_dir_name)}",
             f"[bold]Files:[/bold] {len(self._preview.log_files)} trajectory file(s)",
         ]
         self.query_one("#preview-info", Static).update("\n".join(info_lines))
@@ -186,9 +187,9 @@ class SubmitModal(ModalScreen[SubmitResult | None]):
         match result.status:
             case "success":
                 message.update("[bold #50FA7B]Submission successful![/]")
-                pr_url.update(f"PR: {result.pr_url}")
+                pr_url.update(f"PR: {escape(result.pr_url or '')}")
             case "error":
-                message.update(f"[bold #FF5555]Submission failed[/]\n\n{result.error}")
+                message.update(f"[bold #FF5555]Submission failed[/]\n\n{escape(result.error or '')}")
                 pr_url.update("")
 
         self._switch_state(_STATE_RESULT)

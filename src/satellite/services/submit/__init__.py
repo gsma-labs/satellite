@@ -154,9 +154,12 @@ def build_submit_preview(
     dir_name = model_dir_name(provider, name)
 
     job_dir = jobs_dir / job.id
+    job_dir_resolved = job_dir.resolve()
     log_files = []
     for log_ref in list_eval_logs(str(job_dir), recursive=True):
-        log_path = Path(unquote(urlparse(log_ref.name).path))
+        log_path = Path(unquote(urlparse(log_ref.name).path)).resolve()
+        if not log_path.is_relative_to(job_dir_resolved):
+            continue
         if log_path.exists():
             log_files.append(log_path)
 

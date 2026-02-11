@@ -8,6 +8,7 @@ Pattern copied from Toad's ModeSwitcher/Select overlay behavior.
 
 from typing import ClassVar
 
+from rich.markup import escape
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -147,7 +148,7 @@ class DropdownButton(Vertical):
                 yield Static(self._label, classes="dropdown-title")
                 yield Static("x", classes="dropdown-close")
             for item in self._items:
-                yield Static(item, classes="dropdown-item")
+                yield Static(escape(item), classes="dropdown-item")
         yield Button(f"{self._label}  ▼", classes="dropdown-trigger")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -166,4 +167,4 @@ class DropdownButton(Vertical):
         dropdown_list = self.query_one(".dropdown-list", _DropdownList)
         dropdown_list.remove_children()
         for item in items:
-            dropdown_list.mount(Static(item, classes="dropdown-item"))
+            dropdown_list.mount(Static(escape(item), classes="dropdown-item"))

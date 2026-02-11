@@ -1,5 +1,6 @@
 """Leaderboard client: fetch, collect, and merge leaderboard data."""
 
+import math
 from dataclasses import dataclass, field
 from statistics import mean
 
@@ -141,5 +142,9 @@ def _parse_score(raw_value: float | list | None) -> float | None:
     if raw_value is None:
         return None
     if isinstance(raw_value, list):
-        return float(raw_value[0]) if raw_value else None
-    return float(raw_value)
+        val = float(raw_value[0]) if raw_value else None
+    else:
+        val = float(raw_value)
+    if val is not None and (math.isnan(val) or math.isinf(val)):
+        return None
+    return val
