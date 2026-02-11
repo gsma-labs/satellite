@@ -2,6 +2,7 @@
 
 from typing import ClassVar
 
+from rich.markup import escape
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
@@ -120,8 +121,8 @@ class LeaderboardModal(ModalScreen[None]):
     def _build_row_cells(self, rank: int, entry: LeaderboardEntry) -> list[str]:
         cells = [
             str(rank),
-            entry.model,
-            entry.provider,
+            escape(entry.model),
+            escape(entry.provider),
             self._format_score(entry.avg_score),
         ]
         for benchmark in BENCHMARKS_BY_ID.values():
@@ -142,7 +143,7 @@ class LeaderboardModal(ModalScreen[None]):
         self.query_one("#results-table").display = False
 
         error_widget = self.query_one("#error-text", Static)
-        error_widget.update(f"{message}\n\nPress 'r' to retry.")
+        error_widget.update(f"{escape(message)}\n\nPress 'r' to retry.")
         error_widget.display = True
 
     def action_retry(self) -> None:

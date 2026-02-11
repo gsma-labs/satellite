@@ -1,5 +1,7 @@
 """Leaderboard client: fetch, collect, and merge leaderboard data."""
 
+import logging
+import math
 from dataclasses import dataclass, field
 from statistics import mean
 
@@ -8,6 +10,8 @@ from huggingface_hub import hf_hub_download
 
 from satellite.services.evals import BENCHMARKS_BY_ID, JobManager
 from satellite.services.evals.registry import BENCHMARKS
+
+_log = logging.getLogger(__name__)
 
 DATASET_ID = "GSMA/leaderboard"
 PARQUET_FILE = "data/train-00000-of-00001.parquet"
@@ -141,5 +145,13 @@ def _parse_score(raw_value: float | list | None) -> float | None:
     if raw_value is None:
         return None
     if isinstance(raw_value, list):
-        return float(raw_value[0]) if raw_value else None
-    return float(raw_value)
+        val = float(raw_value[0]) if raw_value else None
+        if val is not None and (math.isnan(val) or math.isinf(val)):
+            _log.warning("Discarding NaN/Inf score from list value: %s", raw_value)
+            return None
+        return val
+    val = float(raw_value)
+    if math.isnan(val) or math.isinf(val):
+        _log.warning("Discarding NaN/Inf score: %s", raw_value)
+        return None
+    return val

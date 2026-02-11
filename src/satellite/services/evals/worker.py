@@ -91,6 +91,9 @@ def main() -> int:
         mark_started_logs_cancelled(config.get("log_dir", ""))
         print("Cancelled", file=sys.stderr)
         return 2
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid config: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 from dataclasses import dataclass
@@ -73,12 +74,27 @@ class EnvConfigManager:
         return {k: v for k, v in dotenv_values(self._env_path).items() if v is not None}
 
     def _write_env(self, env_vars: dict[str, str]) -> None:
-        """Write dict to .env file with proper quoting and restricted permissions."""
+        """Write dict to .env file with proper quoting and restricted permissions.
+
+        Opens with O_CREAT | 0o600 so the file is never world-readable, avoiding
+        a TOCTOU race inherent in write_text() followed by chmod().
+        """
         lines = [
             f"{key}={self._format_value(value)}" for key, value in env_vars.items()
         ]
-        self._env_path.write_text("\n".join(lines) + "\n")
-        self._env_path.chmod(0o600)
+        self._env_path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(
+            self._env_path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o600,
+        )
+        try:
+            data = ("\n".join(lines) + "\n").encode()
+            while data:
+                written = os.write(fd, data)
+                data = data[written:]
+        finally:
+            os.close(fd)
 
     def load_models(self) -> list[ModelConfig]:
         """Load models from INSPECT_EVAL_MODEL."""
