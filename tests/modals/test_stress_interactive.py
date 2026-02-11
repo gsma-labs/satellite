@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from textual.app import App
+from textual.strip import Strip
 from textual.widgets import Static
 
 from satellite.app import SatelliteApp
@@ -396,6 +397,7 @@ class TestDismissDuringWorker:
 # ---------------------------------------------------------------------------
 
 
+@patch("satellite.widgets.julia_set.JuliaSet.render_line", return_value=Strip([]))
 class TestSatelliteAppLeaderboardKey:
     """Drive the real SatelliteApp with mocked externals."""
 
@@ -414,16 +416,19 @@ class TestSatelliteAppLeaderboardKey:
         return_value=SAMPLE_ENTRIES,
     )
     async def test_press_2_opens_leaderboard(
-        self, _merge, _local, _fetch, mock_jm_cls, mock_popen
+        self, _merge, _local, _fetch, mock_jm_cls, mock_popen, _julia
     ):
         """Press '2' on MainScreen -> LeaderboardModal appears."""
         # Configure the mocked JobManager class
         mock_jm_instance = _make_mock_job_manager()
         mock_jm_cls.return_value = mock_jm_instance
 
-        # Prevent subprocess launch
+        # Prevent subprocess launch — use a fake PID so os.getpgid()
+        # raises ProcessLookupError instead of sending SIGTERM to pgid 1
+        # (int(MagicMock()) == 1, which would kill the CI runner on Linux).
         mock_process = MagicMock()
         mock_process.poll.return_value = None
+        mock_process.pid = 99999
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()
@@ -456,7 +461,7 @@ class TestSatelliteAppLeaderboardKey:
         side_effect=OSError("Network error"),
     )
     async def test_press_2_leaderboard_error_then_dismiss(
-        self, _fetch, mock_jm_cls, mock_popen
+        self, _fetch, mock_jm_cls, mock_popen, _julia
     ):
         """Press '2' when fetch fails -> see error -> dismiss cleanly."""
         mock_jm_instance = _make_mock_job_manager()
@@ -464,6 +469,7 @@ class TestSatelliteAppLeaderboardKey:
 
         mock_process = MagicMock()
         mock_process.poll.return_value = None
+        mock_process.pid = 99999
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()
@@ -506,7 +512,7 @@ class TestSatelliteAppLeaderboardKey:
         return_value=SAMPLE_ENTRIES,
     )
     async def test_rapid_2_escape_on_satellite_app(
-        self, _merge, _local, _fetch, mock_jm_cls, mock_popen
+        self, _merge, _local, _fetch, mock_jm_cls, mock_popen, _julia
     ):
         """Rapidly press 2 -> Escape 3 times on the real SatelliteApp."""
         mock_jm_instance = _make_mock_job_manager()
@@ -514,6 +520,7 @@ class TestSatelliteAppLeaderboardKey:
 
         mock_process = MagicMock()
         mock_process.poll.return_value = None
+        mock_process.pid = 99999
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()

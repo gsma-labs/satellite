@@ -133,7 +133,9 @@ class JobDetailModal(ModalScreen[None]):
     def on_mount(self) -> None:
         """Fetch initial data and start polling if the job is still running."""
         self.query_one("#container").styles.opacity = 1.0
-        self.query_one("#container").styles.max_width = self._calculate_container_width()
+        self.query_one(
+            "#container"
+        ).styles.max_width = self._calculate_container_width()
 
         self._fetch_and_update()
 
