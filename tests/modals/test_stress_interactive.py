@@ -26,6 +26,7 @@ from satellite.modals.scripts.leaderboard_modal import LeaderboardModal
 from satellite.services.config import EvalSettingsManager, ModelConfig
 from satellite.services.evals import JobManager
 from satellite.services.leaderboard import LeaderboardEntry
+from tests.conftest import MOCK_NONEXISTENT_PID
 
 
 # ---------------------------------------------------------------------------
@@ -428,7 +429,7 @@ class TestSatelliteAppLeaderboardKey:
         # (int(MagicMock()) == 1, which would kill the CI runner on Linux).
         mock_process = MagicMock()
         mock_process.poll.return_value = None
-        mock_process.pid = 99999
+        mock_process.pid = MOCK_NONEXISTENT_PID
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()
@@ -469,7 +470,7 @@ class TestSatelliteAppLeaderboardKey:
 
         mock_process = MagicMock()
         mock_process.poll.return_value = None
-        mock_process.pid = 99999
+        mock_process.pid = MOCK_NONEXISTENT_PID
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()
@@ -520,7 +521,7 @@ class TestSatelliteAppLeaderboardKey:
 
         mock_process = MagicMock()
         mock_process.poll.return_value = None
-        mock_process.pid = 99999
+        mock_process.pid = MOCK_NONEXISTENT_PID
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()

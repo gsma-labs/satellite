@@ -13,6 +13,11 @@ import pytest
 from satellite.services.config import ModelConfig
 from satellite.services.evals import JobManager
 
+# Fake PID that doesn't exist on the system, so os.getpgid() raises
+# ProcessLookupError instead of returning pgid 1 (which would send
+# SIGTERM to the CI runner's entire process group).
+MOCK_NONEXISTENT_PID = 99999
+
 
 @pytest.fixture
 def mock_popen() -> Generator[tuple[MagicMock, MagicMock], None, None]:
@@ -24,7 +29,7 @@ def mock_popen() -> Generator[tuple[MagicMock, MagicMock], None, None]:
     with patch("satellite.app.subprocess.Popen") as popen_mock:
         process = MagicMock()
         process.poll.return_value = None  # Process running by default
-        process.pid = 99999  # Fake PID so os.getpgid() raises ProcessLookupError
+        process.pid = MOCK_NONEXISTENT_PID
         popen_mock.return_value = process
         yield popen_mock, process
 
