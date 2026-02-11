@@ -294,7 +294,9 @@ class SettingsContent(Vertical):
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Limit:", classes="settings-label")
                 yield Input(
-                    str(self._settings.limit) if self._settings.limit is not None else "",
+                    str(self._settings.limit)
+                    if self._settings.limit is not None
+                    else "",
                     id="limit-input",
                     classes="settings-input",
                     type="integer",
@@ -327,7 +329,9 @@ class SettingsContent(Vertical):
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Token Limit:", classes="settings-label")
                 yield Input(
-                    str(self._settings.token_limit) if self._settings.token_limit is not None else "",
+                    str(self._settings.token_limit)
+                    if self._settings.token_limit is not None
+                    else "",
                     id="token-limit-input",
                     classes="settings-input",
                     type="integer",
@@ -338,7 +342,9 @@ class SettingsContent(Vertical):
             with HorizontalGroup(classes="settings-row"):
                 yield Label("Message Limit:", classes="settings-label")
                 yield Input(
-                    str(self._settings.message_limit) if self._settings.message_limit is not None else "",
+                    str(self._settings.message_limit)
+                    if self._settings.message_limit is not None
+                    else "",
                     id="message-limit-input",
                     classes="settings-input",
                     type="integer",
@@ -578,9 +584,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
             return
         self.app.push_screen(JobDetailModal(job=job, job_manager=self._job_manager))
 
-    def on_eval_list_boundary_reached(
-        self, event: EvalList.BoundaryReached
-    ) -> None:
+    def on_eval_list_boundary_reached(self, event: EvalList.BoundaryReached) -> None:
         """Handle EvalList boundary -- route focus to header or run button."""
         event.stop()
         if event.direction == "down":

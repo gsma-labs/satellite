@@ -24,7 +24,11 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static
 
 from satellite.examples.eval_data import MODEL_PROVIDERS, PROVIDERS_BY_CATEGORY
-from satellite.services.config import EnvConfigManager, ModelConfig, normalize_model_path
+from satellite.services.config import (
+    EnvConfigManager,
+    ModelConfig,
+    normalize_model_path,
+)
 from satellite.widgets.configured_models_list import (
     ConfiguredModelItem,
     ConfiguredModelsList,
@@ -314,7 +318,9 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
             return
         self._env_manager.save_models(self._snapshot)
 
-    def _notify_and_focus(self, message: str, widget_id: str, severity: str = "error") -> None:
+    def _notify_and_focus(
+        self, message: str, widget_id: str, severity: str = "error"
+    ) -> None:
         """Show a notification and focus a widget."""
         self.notify(message, severity=severity)
         self.query_one(widget_id).focus()
@@ -432,7 +438,9 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
             return True
 
         if not url.startswith(("http://", "https://")):
-            self._notify_and_focus("URL must start with http:// or https://", "#credential-input")
+            self._notify_and_focus(
+                "URL must start with http:// or https://", "#credential-input"
+            )
             return False
 
         if len(url) > 500:
@@ -458,7 +466,9 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
                 if provider_data
                 else "Base URL"
             )
-            self._notify_and_focus(f"{label.rstrip(':')} is required", "#credential-input")
+            self._notify_and_focus(
+                f"{label.rstrip(':')} is required", "#credential-input"
+            )
             return False
 
         if credential and not self._validate_base_url(credential):
@@ -478,7 +488,9 @@ class SetModelModal(ModalScreen[list[ModelConfig] | None]):
 
         # Model names should be alphanumeric with limited special chars
         if not re.match(r"^[a-zA-Z0-9._:/-]+$", model):
-            self._notify_and_focus("Model name contains invalid characters", "#model-input")
+            self._notify_and_focus(
+                "Model name contains invalid characters", "#model-input"
+            )
             return False
 
         return True

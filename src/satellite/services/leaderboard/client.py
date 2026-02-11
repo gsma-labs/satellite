@@ -122,9 +122,7 @@ def _compute_avg(scores: dict[str, float | None]) -> float | None:
     return mean(valid)
 
 
-def _parse_row(
-    dataset: dict, row: int, score_cols: dict[str, str]
-) -> LeaderboardEntry:
+def _parse_row(dataset: dict, row: int, score_cols: dict[str, str]) -> LeaderboardEntry:
     raw_model = dataset["model"][row] or "Unknown"
     name, _, provider = raw_model.partition(" (")
 

@@ -189,7 +189,9 @@ class SubmitModal(ModalScreen[SubmitResult | None]):
                 message.update("[bold #50FA7B]Submission successful![/]")
                 pr_url.update(f"PR: {escape(result.pr_url or '')}")
             case "error":
-                message.update(f"[bold #FF5555]Submission failed[/]\n\n{escape(result.error or '')}")
+                message.update(
+                    f"[bold #FF5555]Submission failed[/]\n\n{escape(result.error or '')}"
+                )
                 pr_url.update("")
 
         self._switch_state(_STATE_RESULT)
