@@ -76,8 +76,8 @@ class EnvConfigManager:
     def _write_env(self, env_vars: dict[str, str]) -> None:
         """Write dict to .env file with proper quoting and restricted permissions.
 
-        Uses atomic write via temp file to avoid a TOCTOU race where the file
-        briefly exists with default (world-readable) permissions before chmod.
+        Opens with O_CREAT | 0o600 so the file is never world-readable, avoiding
+        a TOCTOU race inherent in write_text() followed by chmod().
         """
         lines = [
             f"{key}={self._format_value(value)}" for key, value in env_vars.items()
@@ -89,7 +89,10 @@ class EnvConfigManager:
             0o600,
         )
         try:
-            os.write(fd, ("\n".join(lines) + "\n").encode())
+            data = ("\n".join(lines) + "\n").encode()
+            while data:
+                written = os.write(fd, data)
+                data = data[written:]
         finally:
             os.close(fd)
 

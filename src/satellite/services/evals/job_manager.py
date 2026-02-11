@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -9,6 +10,8 @@ from inspect_ai.log import EvalLog, list_eval_logs, read_eval_log
 
 from satellite import PACKAGE_ROOT
 from satellite.services.config import EvalSettings, ModelConfig
+
+_log = logging.getLogger(__name__)
 
 JobStatus = Literal["running", "success", "error", "cancelled"]
 
@@ -79,12 +82,13 @@ def _parse_eval_set(eval_set_file: Path) -> tuple[str, list[str]] | None:
     """Parse eval-set.json and return (model, benchmarks) or None."""
     try:
         data = json.loads(eval_set_file.read_text())
-        tasks = data.get("tasks", [])
-        if not tasks:
-            return None
-        return (tasks[0]["model"], [t["name"].rsplit("/", 1)[-1] for t in tasks])
-    except (json.JSONDecodeError, KeyError, TypeError):
+    except (json.JSONDecodeError, ValueError) as exc:
+        _log.warning("Skipping malformed eval-set %s: %s", eval_set_file, exc)
         return None
+    tasks = data.get("tasks", [])
+    if not tasks:
+        return None
+    return (tasks[0]["model"], [t["name"].rsplit("/", 1)[-1] for t in tasks])
 
 
 def read_status(model_dir: Path) -> JobStatus:
@@ -303,9 +307,10 @@ class JobManager:
             return {}, 0
         try:
             data = json.loads(manifest_path.read_text())
-            return data.get("evals", {}), data.get("total_evals", 0)
-        except (json.JSONDecodeError, KeyError, TypeError):
+        except (json.JSONDecodeError, ValueError) as exc:
+            _log.warning("Skipping malformed manifest %s: %s", manifest_path, exc)
             return {}, 0
+        return data.get("evals", {}), data.get("total_evals", 0)
 
     def _load_evals_from_eval_sets(
         self, job_dir: Path
