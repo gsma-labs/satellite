@@ -423,9 +423,12 @@ class TestSatelliteAppLeaderboardKey:
         mock_jm_instance = _make_mock_job_manager()
         mock_jm_cls.return_value = mock_jm_instance
 
-        # Prevent subprocess launch
+        # Prevent subprocess launch — use a fake PID so os.getpgid()
+        # raises ProcessLookupError instead of sending SIGTERM to pgid 1
+        # (int(MagicMock()) == 1, which would kill the CI runner on Linux).
         mock_process = MagicMock()
         mock_process.poll.return_value = None
+        mock_process.pid = 99999
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()
@@ -466,6 +469,7 @@ class TestSatelliteAppLeaderboardKey:
 
         mock_process = MagicMock()
         mock_process.poll.return_value = None
+        mock_process.pid = 99999
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()
@@ -516,6 +520,7 @@ class TestSatelliteAppLeaderboardKey:
 
         mock_process = MagicMock()
         mock_process.poll.return_value = None
+        mock_process.pid = 99999
         mock_popen.return_value = mock_process
 
         app = SatelliteApp()
