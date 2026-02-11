@@ -1,6 +1,6 @@
 # How to Add New Evaluations
 
-This guide explains how new evaluations flow from the `otelcos/evals` repository into the satellite TUI.
+This guide explains how new evaluations flow from the `gsma-labs/evals` repository into the satellite TUI.
 
 ## Architecture Overview
 
