@@ -35,6 +35,14 @@ make setup
 
 `make setup` installs Python 3.13, all dependencies, and registers the `satellite` command.
 
+> **Linux note:** `make setup` will use `sudo` to install system libraries (libcairo2-dev).
+> Do **not** run `sudo make setup` — this will break the Python environment.
+> If you prefer to install system deps separately:
+> ```bash
+> sudo apt-get install -y libcairo2-dev pkg-config
+> make setup
+> ```
+
 ### 3. Run
 
 ```bash
@@ -84,6 +92,7 @@ All five benchmarks must be completed with the required sample counts before sub
 
 | Command        | Description              |
 |----------------|--------------------------|
+| `make deps`    | Install system libraries |
 | `make setup`   | Install dependencies     |
 | `make test`    | Run tests                |
 | `make lint`    | Lint with Ruff           |

@@ -17,6 +17,14 @@ cd satellite
 make setup
 ```
 
+> **Linux note:** `make setup` will use `sudo` to install system libraries (libcairo2-dev).
+> Do **not** run `sudo make setup` — this will break the Python environment.
+> If you prefer to install system deps separately:
+> ```bash
+> sudo apt-get install -y libcairo2-dev pkg-config
+> make setup
+> ```
+
 ### Run the app
 
 ```bash
@@ -27,6 +35,7 @@ uv run satellite
 
 | Command          | Description               |
 |------------------|---------------------------|
+| `make deps`      | Install system libraries  |
 | `make test`      | Run all tests             |
 | `make lint`      | Lint with Ruff            |
 | `make format`    | Auto-format with Ruff     |
