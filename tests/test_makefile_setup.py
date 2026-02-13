@@ -89,11 +89,15 @@ class TestVenvNotRootOwned:
 
     VENV_PYTHON = PROJECT_ROOT / ".venv" / "bin" / "python"
 
-    def test_venv_python_not_owned_by_root(self) -> None:
+    def test_venv_python_not_under_root_home(self) -> None:
+        """The resolved Python must not live inside /root/ (inaccessible to normal users)."""
         if not self.VENV_PYTHON.exists():
             pytest.skip(".venv/bin/python does not exist")
         resolved = self.VENV_PYTHON.resolve()
-        assert resolved.stat().st_uid != 0
+        assert not str(resolved).startswith("/root/"), (
+            f"venv Python resolves to {resolved}, which is under /root/ "
+            "and inaccessible to non-root users"
+        )
 
     def test_venv_python_accessible_by_current_user(self) -> None:
         if not self.VENV_PYTHON.exists():
