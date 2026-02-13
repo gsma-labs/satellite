@@ -12,14 +12,22 @@ run := uv run satellite
 run:
 	$(run)
 
-.PHONY: setup
-setup:
-	@command -v uv >/dev/null 2>&1 || { echo "Installing uv..."; curl -LsSf https://astral.sh/uv/install.sh | sh; }
+.PHONY: deps
+deps:
 	@if [ "$$(uname)" = "Linux" ] && ! pkg-config --exists cairo 2>/dev/null; then \
 		echo "Installing system dependencies (libcairo2-dev)..."; \
 		sudo apt-get update -qq && sudo apt-get install -y -qq libcairo2-dev pkg-config; \
 	fi
-	uv sync --dev
+
+.PHONY: setup
+setup: deps
+	@if [ "$$(id -u)" = "0" ]; then \
+		echo "Error: do not run 'make setup' as root or with sudo."; \
+		echo "Run 'make deps' for system packages, then 'make setup' as your normal user."; \
+		exit 1; \
+	fi
+	@command -v uv >/dev/null 2>&1 || { echo "Installing uv..."; curl -LsSf https://astral.sh/uv/install.sh | sh; }
+	@. "$(HOME)/.local/bin/env" 2>/dev/null || true; uv sync --dev
 
 .PHONY: test
 test:
