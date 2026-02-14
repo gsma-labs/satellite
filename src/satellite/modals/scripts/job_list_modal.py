@@ -180,15 +180,23 @@ class JobListItem(HorizontalGroup):
         bar = self.query_one(ProgressBar)
         bar.gradient = ERROR_GRADIENT
 
-    def _desired_bar_values(self) -> tuple[int, int]:
-        """Return (total, progress) for the progress bar."""
+    def _desired_bar_values(self) -> tuple[float, float]:
+        """Return (total, progress) for the progress bar.
+
+        While running, progress is expressed in "eval units" where each eval
+        contributes a fraction in [0, 1] based on completed_samples / total_samples
+        for that eval. Summed across evals, this yields progressive updates as
+        samples complete (e.g. 2.4/5).
+        """
         if self._job.status == "success":
-            return (100, 100)
+            return (100.0, 100.0)
         if self._is_stopped():
-            return (100, 100)
+            return (100.0, 100.0)
         if self._job.total_evals > 0:
-            return (self._job.total_evals, self._job.completed_evals)
-        return (100, 0)
+            total = float(self._job.total_evals)
+            progress = min(float(self._job.eval_progress), total)
+            return (total, progress)
+        return (100.0, 0.0)
 
     def _sync_cancel_button(self) -> None:
         """Show or hide the cancel button based on job status."""
@@ -227,7 +235,7 @@ class JobListModal(ModalScreen[str | None]):
     """Modal for viewing and selecting evaluation jobs.
 
     Returns the selected job ID, or None if cancelled.
-    Polls every 2 seconds to update progress bars.
+    Polls frequently to update per-sample progress bars.
     """
 
     CSS_PATH = "../styles/modal_base.tcss"
@@ -302,7 +310,7 @@ class JobListModal(ModalScreen[str | None]):
         """Focus first job item if available and start polling."""
         if self._jobs:
             self._update_highlight()
-        self._refresh_timer = self.set_interval(2.0, self._refresh_jobs)
+        self._refresh_timer = self.set_interval(0.25, self._refresh_jobs)
 
     def on_unmount(self) -> None:
         """Stop polling when unmounted."""

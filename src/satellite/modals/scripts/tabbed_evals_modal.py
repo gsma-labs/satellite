@@ -142,7 +142,9 @@ class JobListContent(Vertical):
 
     def on_mount(self) -> None:
         """Start polling for job updates."""
-        self._refresh_timer = self.set_interval(2.0, self._poll_refresh)
+        # Fast polling yields a "per-sample" feel without requiring an active
+        # inspect trace viewer.
+        self._refresh_timer = self.set_interval(0.25, self._poll_refresh)
 
     def on_unmount(self) -> None:
         """Stop polling when unmounted."""

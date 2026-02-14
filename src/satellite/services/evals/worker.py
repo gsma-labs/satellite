@@ -56,6 +56,10 @@ def run_evals(config: dict) -> int:
     """Execute eval_set and return exit code."""
     from inspect_ai import eval_set
 
+    # Register Inspect hooks that write per-sample progress sidecar files.
+    # This keeps the Satellite UI responsive without parsing large JSON logs repeatedly.
+    import satellite.services.evals.inspect_progress_hook  # noqa: F401
+
     tasks = [t for b in config["benchmarks"] if (t := load_task(b))]
     if not tasks:
         print(f"No valid tasks for benchmarks: {config['benchmarks']}", file=sys.stderr)
@@ -69,6 +73,9 @@ def run_evals(config: dict) -> int:
         "max_connections": config["max_connections"],
         "log_format": EVAL_LOG_FORMAT,
         "display": EVAL_DISPLAY,
+        # Keep Inspect logs detailed and viewable while the run is active.
+        "log_samples": True,
+        "log_realtime": True,
     }
     if "limit" in config:
         kwargs["limit"] = config["limit"]

@@ -23,15 +23,20 @@ def _make_job(
     status: str = "running",
     completed_evals: int = 0,
     total_evals: int = 5,
+    eval_progress: float | None = None,
     completed_samples: int = 0,
     total_samples: int = 100,
 ) -> Job:
     """Create a Job with the given fields."""
+    if eval_progress is None:
+        # Default to whole-eval progress for tests that don't care about fractional progress.
+        eval_progress = float(completed_evals)
     return Job(
         id=job_id,
         status=status,
         completed_evals=completed_evals,
         total_evals=total_evals,
+        eval_progress=eval_progress,
         completed_samples=completed_samples,
         total_samples=total_samples,
     )
@@ -46,30 +51,31 @@ class TestDesiredBarValues:
     """Test _desired_bar_values() returns correct (total, progress) for each state."""
 
     @pytest.mark.parametrize(
-        ("status", "completed_evals", "total_evals", "expected"),
+        ("status", "total_evals", "eval_progress", "expected"),
         [
-            pytest.param("running", 0, 5, (5, 0), id="running_zero_progress"),
-            pytest.param("running", 2, 5, (5, 2), id="running_partial"),
-            pytest.param("running", 0, 0, (100, 0), id="running_no_evals_yet"),
-            pytest.param("success", 5, 5, (100, 100), id="success"),
-            pytest.param("error", 3, 5, (100, 100), id="error_with_progress"),
-            pytest.param("error", 0, 5, (100, 100), id="error_no_progress"),
-            pytest.param("cancelled", 2, 5, (100, 100), id="cancelled_with_progress"),
-            pytest.param("cancelled", 0, 5, (100, 100), id="cancelled_no_progress"),
+            pytest.param("running", 5, 0.0, (5.0, 0.0), id="running_zero_progress"),
+            pytest.param("running", 5, 2.0, (5.0, 2.0), id="running_whole_eval_progress"),
+            pytest.param("running", 5, 2.4, (5.0, 2.4), id="running_fractional_progress"),
+            pytest.param("running", 0, 0.0, (100.0, 0.0), id="running_no_evals_yet"),
+            pytest.param("success", 5, 5.0, (100.0, 100.0), id="success"),
+            pytest.param("error", 5, 3.0, (100.0, 100.0), id="error_with_progress"),
+            pytest.param("error", 5, 0.0, (100.0, 100.0), id="error_no_progress"),
+            pytest.param("cancelled", 5, 2.0, (100.0, 100.0), id="cancelled_with_progress"),
+            pytest.param("cancelled", 5, 0.0, (100.0, 100.0), id="cancelled_no_progress"),
         ],
     )
     def test_desired_bar_values(
         self,
         status: str,
-        completed_evals: int,
         total_evals: int,
-        expected: tuple[int, int],
+        eval_progress: float,
+        expected: tuple[float, float],
     ) -> None:
-        """_desired_bar_values() reflects eval-level progress, not sample-level."""
+        """_desired_bar_values() uses fractional eval progress while running."""
         job = _make_job(
             status=status,
-            completed_evals=completed_evals,
             total_evals=total_evals,
+            eval_progress=eval_progress,
         )
         item = JobListItem(job)
         assert item._desired_bar_values() == expected
@@ -163,8 +169,8 @@ class TestProgressBarCacheSync:
 
         async with app.run_test():
             item = app.query_one(JobListItem)
-            assert item._last_bar_total == 5
-            assert item._last_bar_progress == 2
+            assert item._last_bar_total == 5.0
+            assert item._last_bar_progress == 2.0
 
     async def test_on_mount_success_job_cached_at_100(self) -> None:
         """Success job should cache (100, 100) after mount."""
@@ -173,8 +179,8 @@ class TestProgressBarCacheSync:
 
         async with app.run_test():
             item = app.query_one(JobListItem)
-            assert item._last_bar_total == 100
-            assert item._last_bar_progress == 100
+            assert item._last_bar_total == 100.0
+            assert item._last_bar_progress == 100.0
 
     async def test_noop_when_values_unchanged(self) -> None:
         """Calling _sync_progress_bar with same job data should not call bar.update."""
@@ -209,5 +215,5 @@ class TestProgressBarCacheSync:
             )
             item.update_job(advanced_job)
 
-            assert item._last_bar_total == 5
-            assert item._last_bar_progress == 3
+            assert item._last_bar_total == 5.0
+            assert item._last_bar_progress == 3.0
