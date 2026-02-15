@@ -134,7 +134,7 @@ class SatelliteProgressHooks(Hooks):
             progress.updated_at = _utc_now_iso()
             progress.last_sample_id = data.sample_id
 
-            if progress.planned_units and progress.completed_units > progress.planned_units:
+            if progress.planned_units > 0 and progress.completed_units > progress.planned_units:
                 progress.completed_units = progress.planned_units
 
         await self._write()
@@ -171,27 +171,31 @@ class SatelliteProgressHooks(Hooks):
         """Write the progress file atomically."""
         async with self._ensure_lock():
             path = self._progress_path
+            if path is None:
+                return
+
             eval_set_id = self._eval_set_id
             evals = {k: v.to_json() for k, v in self._evals.items()}
 
-        if path is None:
-            return
+            payload = {
+                "version": PROGRESS_SCHEMA_VERSION,
+                "eval_set_id": eval_set_id,
+                "log_dir": str(path.parent),
+                "updated_at": _utc_now_iso(),
+                "evals": evals,
+            }
 
-        payload = {
-            "version": PROGRESS_SCHEMA_VERSION,
-            "eval_set_id": eval_set_id,
-            "log_dir": str(path.parent),
-            "updated_at": _utc_now_iso(),
-            "evals": evals,
-        }
+            def _write_sync() -> None:
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    tmp = path.with_suffix(path.suffix + ".tmp")
+                    tmp.write_text(
+                        json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+                        + "\n"
+                    )
+                    tmp.replace(path)
+                except (OSError, ValueError):
+                    pass  # Progress reporting is best-effort; don't crash the eval.
 
-        def _write_sync() -> None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(path.suffix + ".tmp")
-            tmp.write_text(
-                json.dumps(payload, ensure_ascii=True, separators=(",", ":")) + "\n"
-            )
-            tmp.replace(path)
-
-        await anyio.to_thread.run_sync(_write_sync)
+            await anyio.to_thread.run_sync(_write_sync)
 

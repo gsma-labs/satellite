@@ -193,7 +193,9 @@ def _aggregate_progress(
                     done = 0
                     if isinstance(progress_entry, dict):
                         done = _safe_int(progress_entry.get("completed_units"), 0)
-                        planned = _safe_int(progress_entry.get("planned_units"), planned)
+                        sidecar_planned = _safe_int(progress_entry.get("planned_units"), 0)
+                        if sidecar_planned > 0:
+                            planned = sidecar_planned
                     if done == 0:
                         done = _count_completed_samples(log_ref)
                     completed_samples += done
@@ -203,7 +205,9 @@ def _aggregate_progress(
             # Running eval — compute progress from sample summaries.
             if isinstance(progress_entry, dict):
                 done = _safe_int(progress_entry.get("completed_units"), 0)
-                planned = _safe_int(progress_entry.get("planned_units"), planned)
+                sidecar_planned = _safe_int(progress_entry.get("planned_units"), 0)
+                if sidecar_planned > 0:
+                    planned = sidecar_planned
             else:
                 done = _count_completed_samples(log_ref)
             completed_samples += done
