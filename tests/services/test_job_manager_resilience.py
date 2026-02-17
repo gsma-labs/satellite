@@ -1,10 +1,15 @@
 """Tests for JobManager resilience when jobs folder is deleted at runtime."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from satellite.services.evals import JobManager
+from satellite.services.evals.job_manager import (
+    _aggregate_progress,
+    _load_job_results,
+)
 
 
 class TestJobManagerFolderDeletion:
@@ -66,3 +71,76 @@ class TestJobManagerFolderDeletion:
         )
         assert job.id.startswith("job_")
         assert jobs_dir.exists()
+
+
+class TestJobManagerInProgressLogs:
+    """Tests that in-progress/unreadable logs do not crash polling paths."""
+
+    def test_load_job_results_skips_unreadable_log(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """_load_job_results() should skip unreadable logs instead of raising."""
+        job_dir = tmp_path / "job_1"
+        job_dir.mkdir()
+        ref = SimpleNamespace(name=(job_dir / "teleqna.json").as_uri(), size=1)
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.list_eval_logs",
+            lambda *_args, **_kwargs: [ref],
+        )
+
+        def raise_parse_runtime_error(*_args, **_kwargs):
+            raise RuntimeError("parse error: premature EOF")
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.read_eval_log",
+            raise_parse_runtime_error,
+        )
+
+        assert _load_job_results(str(job_dir)) == {}
+
+    def test_load_job_results_skips_zero_byte_log_without_read(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """_load_job_results() should not parse logs still at 0 bytes."""
+        job_dir = tmp_path / "job_1"
+        job_dir.mkdir()
+        ref = SimpleNamespace(name=(job_dir / "teleqna.json").as_uri(), size=0)
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.list_eval_logs",
+            lambda *_args, **_kwargs: [ref],
+        )
+
+        def fail_if_read_attempted(*_args, **_kwargs):
+            raise AssertionError("read_eval_log should not be called for size=0 logs")
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.read_eval_log",
+            fail_if_read_attempted,
+        )
+
+        assert _load_job_results(str(job_dir)) == {}
+
+    def test_aggregate_progress_skips_unreadable_log(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """_aggregate_progress() should continue when a header read fails."""
+        model_dir = tmp_path / "openai"
+        model_dir.mkdir()
+        ref = SimpleNamespace(name=(model_dir / "teleqna.json").as_uri(), size=1)
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.list_eval_logs",
+            lambda *_args, **_kwargs: [ref],
+        )
+
+        def raise_unreadable_log_error(*_args, **_kwargs):
+            raise ValueError("Unable to read log file")
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.read_eval_log",
+            raise_unreadable_log_error,
+        )
+
+        assert _aggregate_progress([model_dir]) == ("running", 0, 0, 0.0, 0, 0)

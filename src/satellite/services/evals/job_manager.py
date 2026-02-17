@@ -34,6 +34,8 @@ STATUS_PRIORITY: dict[JobStatus, int] = {
     "success": 3,
 }
 
+RECOVERABLE_LOG_READ_ERRORS = (ValueError, OSError, RuntimeError)
+
 
 def _map_log_status(log: EvalLog) -> JobStatus:
     """Map an EvalLog status to a JobStatus, treating 'started' as 'running'."""
@@ -118,7 +120,7 @@ def _count_completed_samples(log_ref: object) -> int:
                 time.sleep(0.05)
                 continue
             return 0
-        except Exception:
+        except (OSError, RuntimeError):
             return 0
     return 0
 
@@ -138,7 +140,7 @@ def _log_ref_dir(log_ref: object) -> Path | None:
     # Fallback: treat name as a local path.
     try:
         return Path(name).expanduser().resolve().parent
-    except Exception:
+    except (OSError, RuntimeError, ValueError):
         return None
 
 
@@ -170,7 +172,9 @@ def _aggregate_progress(
                 satellite_progress = _load_satellite_progress(log_dir)
                 progress_cache[log_dir] = satellite_progress
 
-            log = read_eval_log(log_ref, header_only=True)
+            log = _read_eval_log_header_safe(log_ref)
+            if log is None:
+                continue
             statuses.append(_map_log_status(log))
             total_evals += 1
             planned = _planned_units(log)
@@ -259,7 +263,13 @@ def read_status(model_dir: Path) -> JobStatus:
     if not logs:
         return "error"
 
-    statuses = [_map_log_status(read_eval_log(p, header_only=True)) for p in logs]
+    statuses = [
+        _map_log_status(log)
+        for p in logs
+        if (log := _read_eval_log_header_safe(p)) is not None
+    ]
+    if not statuses:
+        return "running"
     return min(statuses, key=STATUS_PRIORITY.get)
 
 
@@ -296,7 +306,7 @@ def _read_eval_log_header_safe(log_path: object) -> EvalLog | None:
 
     try:
         return read_eval_log(log_path, header_only=True)
-    except ValueError as exc:
+    except RECOVERABLE_LOG_READ_ERRORS as exc:
         _log.debug("Skipping unreadable eval log %s: %s", log_path, exc)
         return None
 
@@ -484,7 +494,9 @@ class JobManager:
             inferred_epochs: int | None = None
             for model_dir in model_dirs:
                 for log_ref in list_eval_logs(str(model_dir)):
-                    log = read_eval_log(log_ref, header_only=True)
+                    log = _read_eval_log_header_safe(log_ref)
+                    if log is None:
+                        continue
                     cfg = getattr(getattr(log, "eval", None), "config", None)
                     if cfg is None:
                         continue

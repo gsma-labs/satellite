@@ -50,10 +50,13 @@ class JobDetailModalTestApp(App):
         job: Job,
         results: dict[str, dict[str, float]] | None = None,
         details: JobDetails | None = None,
+        job_manager: MagicMock | None = None,
     ) -> None:
         super().__init__()
         self._job = job
-        self._job_manager = _make_mock_job_manager(job, results, details)
+        self._job_manager = job_manager or _make_mock_job_manager(
+            job, results, details
+        )
 
     def on_mount(self) -> None:
         self.push_screen(
@@ -175,6 +178,51 @@ class TestJobDetailModalResultsDisplay:
             score_cells = list(modal.query(".scores-cell"))
             all_text = " ".join(str(cell.render()) for cell in score_cells)
             assert expected_text in all_text
+
+    async def test_poll_refresh_survives_job_manager_exception(
+        self, sample_job: Job
+    ) -> None:
+        """Polling should not crash if JobManager throws during refresh."""
+        manager = MagicMock(spec=JobManager)
+        manager.get_job_results.side_effect = [
+            {"openai/gpt-4o": {"teleqna": 0.85, "telemath": 0.72}},
+            RuntimeError("read failure"),
+        ]
+        manager.get_job_details.return_value = JobDetails(
+            status="success",
+            total_samples=10,
+            total_tokens=1000,
+            duration_seconds=5.0,
+        )
+
+        app = JobDetailModalTestApp(job=sample_job, job_manager=manager)
+
+        async with app.run_test():
+            modal = app.screen
+
+            score_cells = list(modal.query(".scores-cell"))
+            score_text_before = " ".join(str(cell.render()) for cell in score_cells)
+            assert "0.85" in score_text_before
+            assert "0.72" in score_text_before
+
+            modal._poll_refresh()
+
+            score_cells = list(modal.query(".scores-cell"))
+            score_text_after = " ".join(str(cell.render()) for cell in score_cells)
+            assert "0.85" in score_text_after
+            assert "0.72" in score_text_after
+            assert manager.get_job_results.call_count == 2
+
+    def test_fetch_update_propagates_unexpected_exception(
+        self, sample_job: Job
+    ) -> None:
+        """Unexpected exceptions should propagate instead of being silently swallowed."""
+        manager = MagicMock(spec=JobManager)
+        manager.get_job_results.side_effect = TypeError("unexpected")
+        modal = JobDetailModal(job=sample_job, job_manager=manager)
+
+        with pytest.raises(TypeError):
+            modal._fetch_and_update()
 
 
 # ============================================================================
