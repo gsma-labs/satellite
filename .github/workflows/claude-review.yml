@@ -1,0 +1,58 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  # Automatic review on every PR
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request thoroughly:
+
+            1. Run /code-review to check code quality, logic errors, and adherence to project conventions.
+            2. Run /security-review to identify security vulnerabilities.
+
+            Focus on:
+            - Python best practices and type safety
+            - Security issues (injection, auth, data exposure)
+            - Test coverage for new/changed code
+            - Adherence to existing project patterns
+          claude_args: "--max-turns 10"
+
+  # Interactive: respond to @claude mentions in PR comments
+  respond:
+    if: >
+      github.event_name == 'issue_comment' &&
+      contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: "--max-turns 10"
