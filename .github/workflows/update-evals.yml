@@ -1,9 +1,8 @@
 name: Update evals dependency
 
 on:
-  schedule:
-    # Weekly on Monday at 05:00 UTC.
-    - cron: "0 5 * * 1"
+  repository_dispatch:
+    types: [evals-updated]
   workflow_dispatch:
 
 permissions:
