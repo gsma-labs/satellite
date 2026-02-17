@@ -114,11 +114,12 @@ class SubmitModal(ModalScreen[SubmitResult | None]):
         scroll = self.query_one("#model-list-scroll", VerticalScroll)
 
         if not self._eligible_models:
+            benchmark_names = ", ".join(b.name for b in BENCHMARKS_BY_ID.values())
             description.update(
                 "[warning]No eligible models found.[/]\n\n"
                 "A model is eligible when it has completed [bold]all[/bold] "
                 f"{len(BENCHMARKS_BY_ID)} benchmarks\n"
-                "(TeleQnA, TeleLogs, TeleMath, TeleTables, 3GPP)\n"
+                f"({benchmark_names})\n"
                 "with valid scores."
             )
             return

@@ -5,7 +5,6 @@ Run with: uv run pytest tests/integration/test_eval_runner.py -v
 """
 
 import os
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,8 +13,8 @@ from dotenv import load_dotenv
 from inspect_ai.log import list_eval_logs
 
 from satellite.services.config import EvalSettings
-from satellite.services.evals import EvalRunner
-from satellite.services.evals.job_manager import Job, JobManager
+from satellite.services.evals import BENCHMARKS_BY_ID, EvalRunner
+from satellite.services.evals.job_manager import Job
 from satellite.services.evals.worker import load_task
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
@@ -37,13 +36,7 @@ class TestTaskLoading:
 
     @pytest.mark.parametrize(
         "benchmark_id",
-        [
-            pytest.param("teleqna", id="teleqna"),
-            pytest.param("telelogs", id="telelogs"),
-            pytest.param("telemath", id="telemath"),
-            pytest.param("teletables", id="teletables"),
-            pytest.param("three_gpp", id="three_gpp"),
-        ],
+        [pytest.param(benchmark_id, id=benchmark_id) for benchmark_id in BENCHMARKS_BY_ID],
     )
     def test_load_valid_benchmark(self, benchmark_id: str) -> None:
         """All declared benchmarks should load successfully."""

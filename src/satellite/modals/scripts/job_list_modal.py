@@ -148,9 +148,17 @@ class JobListItem(HorizontalGroup):
         self._sync_bar_gradient()
 
     def update_job(self, job: Job) -> None:
-        """Update this item with refreshed job data."""
+        """Update this item with refreshed job data.
+
+        Silently skips UI updates if compose() hasn't completed yet,
+        which can happen when the polling timer fires before a newly
+        mounted widget finishes composing its children.
+        """
         old_status = self._job.status
         self._job = job
+
+        if not self.query(ProgressBar):
+            return
 
         if old_status != job.status:
             self.remove_class(f"-{old_status}")
@@ -170,15 +178,19 @@ class JobListItem(HorizontalGroup):
         self._last_bar_total = total
         self._last_bar_progress = progress
 
-        bar = self.query_one(ProgressBar)
-        bar.update(total=total, progress=progress)
+        bars = self.query(ProgressBar)
+        if not bars:
+            return
+        bars.first().update(total=total, progress=progress)
 
     def _sync_bar_gradient(self) -> None:
         """Apply red gradient to the progress bar when the job is stopped."""
         if not self._is_stopped():
             return
-        bar = self.query_one(ProgressBar)
-        bar.gradient = ERROR_GRADIENT
+        bars = self.query(ProgressBar)
+        if not bars:
+            return
+        bars.first().gradient = ERROR_GRADIENT
 
     def _desired_bar_values(self) -> tuple[float, float]:
         """Return (total, progress) for the progress bar.

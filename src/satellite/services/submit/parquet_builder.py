@@ -15,15 +15,15 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from inspect_ai.log import EvalLog, read_eval_log
 
-from satellite.services.evals import BENCHMARKS_BY_ID
+from satellite.services.evals import BENCHMARKS, BENCHMARKS_BY_ID
 
 if TYPE_CHECKING:
     from satellite.services.submit import SubmitPreview
 
 MODEL_CARDS_DIR = "model_cards"
 
-# Parquet columns in leaderboard order
-SCORE_COLUMNS = ("teleqna", "telelogs", "telemath", "3gpp_tsg", "teletables")
+# Parquet score columns in registry order (deduplicated by hf_column).
+SCORE_COLUMNS = tuple(dict.fromkeys(b.hf_column for b in BENCHMARKS))
 
 _PATH_TRAVERSAL_PATTERNS = ("..", "/", "\\")
 

@@ -502,8 +502,8 @@ wheels = [
 
 [[package]]
 name = "evals"
-version = "0.0.1.dev111+unknown.gfaa7c3489"
-source = { git = "https://github.com/otelcos/evals.git?rev=faa7c3489#faa7c3489d3e2b8c2ee00f5d8fa6cfba51287499" }
+version = "1.0.1.dev7+g2d329bfb0"
+source = { git = "https://github.com/gsma-labs/evals.git?rev=main#2d329bfb0950dcba5acc97b429a77d0c01d7df59" }
 dependencies = [
     { name = "datasets" },
     { name = "inspect-ai" },
@@ -2740,7 +2740,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "evals", git = "https://github.com/otelcos/evals.git?rev=faa7c3489" },
+    { name = "evals", git = "https://github.com/gsma-labs/evals.git?rev=main" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "huggingface-hub", specifier = ">=0.20.0" },
     { name = "inspect-ai", specifier = ">=0.3.170,<0.4" },

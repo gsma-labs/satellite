@@ -12,6 +12,7 @@ import threading
 from pathlib import Path
 from typing import NamedTuple
 
+from satellite import PACKAGE_ROOT
 from satellite.services.config import EvalSettings
 from satellite.services.evals.job_manager import Job
 from satellite.services.evals.worker import mark_started_logs_cancelled
@@ -19,6 +20,7 @@ from satellite.services.evals.worker import mark_started_logs_cancelled
 CANCELLED_EXIT_CODE = 2
 CANCELLED_MARKER = "cancelled"
 WORKER_CMD = ["uv", "run", "python", "-m", "satellite.services.evals.worker"]
+UV_PROJECT_ROOT = PACKAGE_ROOT.parent.parent
 
 
 class EvalResult(NamedTuple):
@@ -167,6 +169,7 @@ class EvalRunner:
 
         process = subprocess.Popen(
             WORKER_CMD,
+            cwd=UV_PROJECT_ROOT,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
