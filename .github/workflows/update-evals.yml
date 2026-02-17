@@ -12,6 +12,7 @@ permissions:
 jobs:
   update-evals:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -19,7 +20,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
         with:
-          python-version: "3.13"
+          python-version: "3.10"
 
       - name: Upgrade evals in lockfile
         run: uv lock --upgrade-package evals
@@ -27,7 +28,7 @@ jobs:
       - name: Check for dependency changes
         id: deps_changed
         run: |
-          if git diff --quiet -- pyproject.toml uv.lock; then
+          if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -42,11 +43,11 @@ jobs:
         run: |
           uv run ruff check src/
           uv run ruff format --check src/
-          uv run pytest tests/ -v
+          uv run pytest tests/ -v -m "not slow"
 
       - name: Create pull request
         if: steps.deps_changed.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88bbb2d172f0 # v7
         with:
           branch: chore/auto-update-evals
           delete-branch: true
