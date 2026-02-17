@@ -27,12 +27,21 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Review this pull request. Read the changed files and provide a concise review covering:
-            - Code quality and logic errors
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request thoroughly. Focus on:
             - Python best practices and type safety
             - Security issues (injection, auth, data exposure)
+            - Test coverage for new/changed code
             - Adherence to existing project patterns
-          claude_args: "--max-turns 25"
+
+            Use `gh pr comment` to post a top-level summary of your review.
+            Use `mcp__github_inline_comment__create_inline_comment` to highlight specific code issues with inline annotations.
+            Only post GitHub comments - don't submit review text as messages.
+          claude_args: >-
+            --max-turns 25
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
 
   # Interactive: respond to @claude mentions in PR comments
   respond:
