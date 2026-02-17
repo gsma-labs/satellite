@@ -88,11 +88,36 @@ class TestJobManagerInProgressLogs:
             "satellite.services.evals.job_manager.list_eval_logs",
             lambda *_args, **_kwargs: [ref],
         )
+
+        def raise_parse_runtime_error(*_args, **_kwargs):
+            raise RuntimeError("parse error: premature EOF")
+
         monkeypatch.setattr(
             "satellite.services.evals.job_manager.read_eval_log",
-            lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                RuntimeError("parse error: premature EOF")
-            ),
+            raise_parse_runtime_error,
+        )
+
+        assert _load_job_results(str(job_dir)) == {}
+
+    def test_load_job_results_skips_zero_byte_log_without_read(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """_load_job_results() should not parse logs still at 0 bytes."""
+        job_dir = tmp_path / "job_1"
+        job_dir.mkdir()
+        ref = SimpleNamespace(name=(job_dir / "teleqna.json").as_uri(), size=0)
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.list_eval_logs",
+            lambda *_args, **_kwargs: [ref],
+        )
+
+        def fail_if_read_attempted(*_args, **_kwargs):
+            raise AssertionError("read_eval_log should not be called for size=0 logs")
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.read_eval_log",
+            fail_if_read_attempted,
         )
 
         assert _load_job_results(str(job_dir)) == {}
@@ -109,11 +134,13 @@ class TestJobManagerInProgressLogs:
             "satellite.services.evals.job_manager.list_eval_logs",
             lambda *_args, **_kwargs: [ref],
         )
+
+        def raise_unreadable_log_error(*_args, **_kwargs):
+            raise ValueError("Unable to read log file")
+
         monkeypatch.setattr(
             "satellite.services.evals.job_manager.read_eval_log",
-            lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                ValueError("Unable to read log file")
-            ),
+            raise_unreadable_log_error,
         )
 
         assert _aggregate_progress([model_dir]) == ("running", 0, 0, 0.0, 0, 0)

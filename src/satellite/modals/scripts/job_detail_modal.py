@@ -29,6 +29,8 @@ STATUS_COLORS: dict[str, str] = {
     "cancelled": "#FFB86C",
 }
 
+RECOVERABLE_REFRESH_ERRORS = (RuntimeError, OSError, ValueError)
+
 
 def _format_tokens(total: int) -> str:
     """Format token count with K/M suffix."""
@@ -156,7 +158,7 @@ class JobDetailModal(ModalScreen[None]):
         try:
             self._results = self._job_manager.get_job_results(self._job.id)
             self._details = self._job_manager.get_job_details(self._job.id)
-        except Exception as exc:
+        except RECOVERABLE_REFRESH_ERRORS as exc:
             _log.debug("Skipping refresh for job %s: %s", self._job.id, exc)
             return
 

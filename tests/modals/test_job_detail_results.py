@@ -213,6 +213,17 @@ class TestJobDetailModalResultsDisplay:
             assert "0.72" in score_text_after
             assert manager.get_job_results.call_count == 2
 
+    def test_fetch_update_propagates_unexpected_exception(
+        self, sample_job: Job
+    ) -> None:
+        """Unexpected exceptions should propagate instead of being silently swallowed."""
+        manager = MagicMock(spec=JobManager)
+        manager.get_job_results.side_effect = TypeError("unexpected")
+        modal = JobDetailModal(job=sample_job, job_manager=manager)
+
+        with pytest.raises(TypeError):
+            modal._fetch_and_update()
+
 
 # ============================================================================
 # Test Class 2: Job Selection Fetches Results (Bug Fix Verification)
