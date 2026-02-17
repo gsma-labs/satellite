@@ -1,5 +1,6 @@
 """JobDetailModal - Modal dialog displaying job details with live refresh."""
 
+import logging
 import webbrowser
 from typing import ClassVar
 
@@ -12,6 +13,8 @@ from textual.timer import Timer
 from textual.widgets import Label, Static
 
 from satellite.services.evals import Job, JobDetails, JobManager
+
+_log = logging.getLogger(__name__)
 
 INSPECT_TRACES_BASE_URL = "http://127.0.0.1:7575/#/logs"
 POLL_INTERVAL_SECONDS = 2.0
@@ -150,8 +153,12 @@ class JobDetailModal(ModalScreen[None]):
 
     def _fetch_and_update(self) -> None:
         """Fetch latest results/details from JobManager and update the UI."""
-        self._results = self._job_manager.get_job_results(self._job.id)
-        self._details = self._job_manager.get_job_details(self._job.id)
+        try:
+            self._results = self._job_manager.get_job_results(self._job.id)
+            self._details = self._job_manager.get_job_details(self._job.id)
+        except Exception as exc:
+            _log.debug("Skipping refresh for job %s: %s", self._job.id, exc)
+            return
 
         self._update_metadata()
         self._update_scores_table()
