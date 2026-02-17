@@ -27,17 +27,12 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Review this pull request thoroughly:
-
-            1. Run /code-review to check code quality, logic errors, and adherence to project conventions.
-            2. Run /security-review to identify security vulnerabilities.
-
-            Focus on:
+            Review this pull request. Read the changed files and provide a concise review covering:
+            - Code quality and logic errors
             - Python best practices and type safety
             - Security issues (injection, auth, data exposure)
-            - Test coverage for new/changed code
             - Adherence to existing project patterns
-          claude_args: "--max-turns 10"
+          claude_args: "--max-turns 25"
 
   # Interactive: respond to @claude mentions in PR comments
   respond:
