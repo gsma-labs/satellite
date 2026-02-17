@@ -35,8 +35,9 @@ make setup
 
 `make setup` installs Python 3.13, all dependencies, and registers the `satellite` command.
 
-> **Linux note:** `make setup` will use `sudo` to install system libraries (libcairo2-dev).
-> Do **not** run `sudo make setup` — this will break the Python environment.
+> **Linux note:** `make setup` may use `sudo` to install system libraries (libcairo2-dev).
+> Running `sudo make setup` is supported: Python dependencies are installed as the invoking user (`$SUDO_USER`), not in `/root`.
+> Running `make setup` directly as root (without `SUDO_USER`) is not supported.
 > If you prefer to install system deps separately:
 > ```bash
 > sudo apt-get install -y libcairo2-dev pkg-config

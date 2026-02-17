@@ -21,13 +21,22 @@ deps:
 
 .PHONY: setup
 setup: deps
-	@if [ "$$(id -u)" = "0" ]; then \
-		echo "Error: do not run 'make setup' as root or with sudo."; \
-		echo "Run 'make deps' for system packages, then 'make setup' as your normal user."; \
+	@if [ "$$(id -u)" = "0" ] && [ -n "$${SUDO_USER:-}" ]; then \
+		echo "Running Python setup as $$SUDO_USER..."; \
+		sudo -u "$$SUDO_USER" -H sh -lc 'command -v uv >/dev/null 2>&1 || { echo "Installing uv..."; curl -LsSf https://astral.sh/uv/install.sh | sh; }; UV_BIN="$$HOME/.local/bin/uv"; if [ -x "$$UV_BIN" ]; then "$$UV_BIN" sync --dev; else uv sync --dev; fi'; \
+	elif [ "$$(id -u)" = "0" ]; then \
+		echo "Error: running 'make setup' directly as root is not supported."; \
+		echo "Run 'make setup' as a normal user (or via sudo from that user account)."; \
 		exit 1; \
+	else \
+		command -v uv >/dev/null 2>&1 || { echo "Installing uv..."; curl -LsSf https://astral.sh/uv/install.sh | sh; }; \
+		UV_BIN="$$HOME/.local/bin/uv"; \
+		if [ -x "$$UV_BIN" ]; then \
+			"$$UV_BIN" sync --dev; \
+		else \
+			uv sync --dev; \
+		fi; \
 	fi
-	@command -v uv >/dev/null 2>&1 || { echo "Installing uv..."; curl -LsSf https://astral.sh/uv/install.sh | sh; }
-	@. "$(HOME)/.local/bin/env" 2>/dev/null || true; uv sync --dev
 
 .PHONY: test
 test:

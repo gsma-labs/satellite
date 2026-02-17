@@ -1,7 +1,7 @@
 """Tests for Makefile setup-target safety.
 
-Verifies that ``make setup`` rejects root, sources the uv PATH correctly,
-and keeps sudo-requiring commands in the separate ``deps`` target.
+Verifies that ``make setup`` handles sudo safely, resolves uv reliably,
+and keeps system package installation in the separate ``deps`` target.
 """
 
 import os
@@ -24,39 +24,38 @@ def _dry_run_target(target: str) -> subprocess.CompletedProcess[str]:
 
 
 # ============================================================================
-# Root guard
+# Sudo handling
 # ============================================================================
 
 
-class TestSetupRejectsRoot:
-    """``make setup`` must refuse to run as root."""
+class TestSetupSudoFlow:
+    """``make setup`` should support sudo while preventing direct-root usage."""
 
-    def test_setup_contains_uid_check(self) -> None:
+    def test_setup_runs_python_setup_as_sudo_user(self) -> None:
         result = _dry_run_target("setup")
-        assert "id -u" in result.stdout
+        assert 'sudo -u "$SUDO_USER" -H sh -lc' in result.stdout
 
-    def test_setup_exits_nonzero_for_root(self) -> None:
+    def test_setup_rejects_direct_root_without_sudo_user(self) -> None:
         result = _dry_run_target("setup")
+        assert "directly as root is not supported" in result.stdout
         assert "exit 1" in result.stdout
 
 
 # ============================================================================
-# uv PATH resolution
+# uv path resolution
 # ============================================================================
 
 
-class TestUvEnvSourced:
-    """After a fresh uv install the env must be sourced before ``uv sync``."""
+class TestUvPathResolution:
+    """After a fresh uv install, setup must still run ``uv sync --dev``."""
 
-    def test_setup_sources_local_bin_env(self) -> None:
+    def test_setup_references_local_uv_binary(self) -> None:
         result = _dry_run_target("setup")
-        assert ".local/bin/env" in result.stdout
+        assert ".local/bin/uv" in result.stdout
 
-    def test_uv_sync_on_same_line_as_env_source(self) -> None:
+    def test_setup_runs_uv_sync_dev(self) -> None:
         result = _dry_run_target("setup")
-        lines = result.stdout.strip().splitlines()
-        env_and_sync = [line for line in lines if ".local/bin/env" in line and "uv sync" in line]
-        assert len(env_and_sync) == 1
+        assert "sync --dev" in result.stdout
 
 
 # ============================================================================
@@ -71,12 +70,12 @@ class TestDepsTarget:
         result = _dry_run_target("deps")
         assert result.returncode == 0
 
-    def test_setup_does_not_call_sudo(self) -> None:
+    def test_setup_does_not_install_system_packages(self) -> None:
         deps_output = _dry_run_target("deps").stdout.strip()
         setup_output = _dry_run_target("setup").stdout.strip()
         setup_only = setup_output.replace(deps_output, "")
         non_echo = [line for line in setup_only.splitlines() if not line.lstrip().startswith("echo ")]
-        assert "sudo" not in "\n".join(non_echo)
+        assert "apt-get" not in "\n".join(non_echo)
 
 
 # ============================================================================
