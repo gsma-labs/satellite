@@ -53,7 +53,8 @@ uv run satellite
 
 ### Run Evaluations
 
-Run any combination of the five telecom benchmarks against your chosen model:
+Run any combination of the telecom benchmarks against your chosen model.
+Satellite discovers available benchmarks from `evals._registry` automatically.
 
 | Benchmark | Required Samples |
 |-----------|-----------------|
@@ -62,6 +63,8 @@ Run any combination of the five telecom benchmarks against your chosen model:
 | TeleMath  | 100             |
 | TeleTables| 100             |
 | 3GPP      | 100             |
+| ORANBench | 150             |
+| srsRANBench | 150           |
 
 Track running jobs with live progress bars, cancel jobs in progress, and inspect detailed scores and token usage per job. The Settings tab lets you configure sample limits, epochs, max connections, and token limits.
 
@@ -86,7 +89,7 @@ To submit results, you need a GitHub token with the following permissions scoped
 - `contents:read` and `contents:write`
 - `pull_requests:write`
 
-All five benchmarks must be completed with the required sample counts before submission is allowed.
+All currently registered benchmarks must be completed with the required sample counts before submission is allowed.
 
 ## Development
 

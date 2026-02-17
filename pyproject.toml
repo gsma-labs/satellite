@@ -18,7 +18,7 @@ dependencies = [
     "textual>=7.5.0",
     "huggingface-hub>=0.20.0",
     "pyarrow>=14.0.0",
-    "evals @ git+https://github.com/otelcos/evals.git@faa7c3489",
+    "evals @ git+https://github.com/gsma-labs/evals.git@main",
     "inspect-ai>=0.3.170,<0.4",
     "openai>=2.16.0",
     "python-dotenv>=1.0.0",

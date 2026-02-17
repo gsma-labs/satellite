@@ -10,6 +10,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from satellite.services.evals import BENCHMARKS, BENCHMARKS_BY_ID
 from satellite.services.submit import SubmitPreview
 from satellite.services.submit.parquet_builder import (
     SCORE_COLUMNS,
@@ -60,13 +61,56 @@ class _EvalLog:
         )
 
 
-ALL_LOGS: dict[str, _EvalLog] = {
-    "/fake/teleqna.json": _EvalLog("teleqna", 0.85, 1000, stderr=0.012),
-    "/fake/telelogs.json": _EvalLog("telelogs", 0.90, 100, stderr=0.03),
-    "/fake/telemath.json": _EvalLog("telemath", 0.75, 100, stderr=0.04),
-    "/fake/teletables.json": _EvalLog("teletables", 0.80, 100, stderr=0.04),
-    "/fake/3gpp_tsg.json": _EvalLog("three_gpp", 0.70, 100, stderr=0.05),
+_KNOWN_ACCURACY_BY_BENCH_ID: dict[str, float] = {
+    "teleqna": 0.85,
+    "telelogs": 0.90,
+    "telemath": 0.75,
+    "teletables": 0.80,
+    "three_gpp": 0.70,
 }
+
+_KNOWN_STDERR_BY_BENCH_ID: dict[str, float] = {
+    "teleqna": 0.012,
+    "telelogs": 0.03,
+    "telemath": 0.04,
+    "teletables": 0.04,
+    "three_gpp": 0.05,
+}
+
+_ACCURACY_BY_BENCH_ID: dict[str, float] = {}
+_STDERR_BY_BENCH_ID: dict[str, float] = {}
+for index, benchmark in enumerate(BENCHMARKS):
+    _ACCURACY_BY_BENCH_ID[benchmark.id] = _KNOWN_ACCURACY_BY_BENCH_ID.get(
+        benchmark.id,
+        round(0.60 + (0.03 * index), 4),
+    )
+    _STDERR_BY_BENCH_ID[benchmark.id] = _KNOWN_STDERR_BY_BENCH_ID.get(
+        benchmark.id,
+        round(0.01 + (0.002 * index), 6),
+    )
+
+ALL_LOGS: dict[str, _EvalLog] = {
+    f"/fake/{benchmark.hf_column}.json": _EvalLog(
+        benchmark.id,
+        _ACCURACY_BY_BENCH_ID[benchmark.id],
+        benchmark.total_samples or 100,
+        stderr=_STDERR_BY_BENCH_ID[benchmark.id],
+    )
+    for benchmark in BENCHMARKS
+}
+
+PRIMARY_BENCH_ID = "teleqna" if "teleqna" in BENCHMARKS_BY_ID else BENCHMARKS[0].id
+PRIMARY_BENCH = BENCHMARKS_BY_ID[PRIMARY_BENCH_ID]
+PRIMARY_HF_COLUMN = PRIMARY_BENCH.hf_column
+
+BENCHMARK_SCORE_PARAMS = [
+    pytest.param(
+        BENCHMARKS_BY_ID[bench_id].hf_column,
+        _ACCURACY_BY_BENCH_ID[bench_id] * 100,
+        id=BENCHMARKS_BY_ID[bench_id].hf_column,
+    )
+    for bench_id in _ACCURACY_BY_BENCH_ID
+]
 
 MOCK_PATCH_TARGET = "satellite.services.submit.parquet_builder.read_eval_log"
 
@@ -86,15 +130,10 @@ def _make_preview(
         model=model,
         provider=provider,
         model_dir_name=model_dir_name,
-        benchmarks=["teleqna", "telelogs", "telemath", "teletables", "three_gpp"],
-        scores={
-            "teleqna": 0.85,
-            "telelogs": 0.90,
-            "telemath": 0.75,
-            "teletables": 0.80,
-            "three_gpp": 0.70,
-        },
-        log_files=log_files or [Path(f"/fake/{b}.json") for b in SCORE_COLUMNS],
+        benchmarks=[benchmark.id for benchmark in BENCHMARKS],
+        scores={bench_id: score for bench_id, score in _ACCURACY_BY_BENCH_ID.items()},
+        log_files=log_files
+        or [Path(f"/fake/{benchmark.hf_column}.json") for benchmark in BENCHMARKS],
     )
 
 
@@ -120,7 +159,7 @@ class TestParquetSchema:
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
         table = _read_parquet(parquet_bytes)
-        expected = {"model", "teleqna", "telelogs", "telemath", "3gpp_tsg", "teletables", "date"}
+        expected = {"model", *SCORE_COLUMNS, "date"}
         assert set(table.column_names) == expected
 
     def test_schema_column_order(self) -> None:
@@ -128,7 +167,7 @@ class TestParquetSchema:
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
         table = _read_parquet(parquet_bytes)
-        expected_order = ["model", "teleqna", "telelogs", "telemath", "3gpp_tsg", "teletables", "date"]
+        expected_order = ["model", *SCORE_COLUMNS, "date"]
         assert table.column_names == expected_order
 
     def test_single_row(self) -> None:
@@ -167,9 +206,24 @@ class TestScoreConversion:
     @pytest.mark.parametrize(
         ("column", "index", "expected"),
         [
-            pytest.param("teleqna", SCORE_INDEX, 85.0, id="accuracy_pct"),
-            pytest.param("teleqna", STDERR_INDEX, 1.2, id="stderr_pct"),
-            pytest.param("teleqna", SAMPLES_INDEX, 1000.0, id="n_samples"),
+            pytest.param(
+                PRIMARY_HF_COLUMN,
+                SCORE_INDEX,
+                _ACCURACY_BY_BENCH_ID[PRIMARY_BENCH_ID] * 100,
+                id="accuracy_pct",
+            ),
+            pytest.param(
+                PRIMARY_HF_COLUMN,
+                STDERR_INDEX,
+                _STDERR_BY_BENCH_ID[PRIMARY_BENCH_ID] * 100,
+                id="stderr_pct",
+            ),
+            pytest.param(
+                PRIMARY_HF_COLUMN,
+                SAMPLES_INDEX,
+                float(PRIMARY_BENCH.total_samples or 100),
+                id="n_samples",
+            ),
         ],
     )
     def test_teleqna_score_triplet(
@@ -183,13 +237,7 @@ class TestScoreConversion:
 
     @pytest.mark.parametrize(
         ("column", "expected_score"),
-        [
-            pytest.param("teleqna", 85.0, id="teleqna"),
-            pytest.param("telelogs", 90.0, id="telelogs"),
-            pytest.param("telemath", 75.0, id="telemath"),
-            pytest.param("teletables", 80.0, id="teletables"),
-            pytest.param("3gpp_tsg", 70.0, id="3gpp_tsg"),
-        ],
+        BENCHMARK_SCORE_PARAMS,
     )
     def test_all_benchmarks_scored(
         self, column: str, expected_score: float
@@ -206,19 +254,23 @@ class TestMissingStderr:
 
     def test_no_stderr_defaults_to_zero(self) -> None:
         logs_no_stderr = {
-            "/fake/teleqna.json": _EvalLog("teleqna", 0.85, 1000),
+            f"/fake/{PRIMARY_HF_COLUMN}.json": _EvalLog(
+                PRIMARY_BENCH_ID,
+                _ACCURACY_BY_BENCH_ID[PRIMARY_BENCH_ID],
+                PRIMARY_BENCH.total_samples or 100,
+            ),
         }
 
         def mock_read(path: str, header_only: bool = False) -> _EvalLog:
             return logs_no_stderr[path]
 
-        preview = _make_preview(log_files=[Path("/fake/teleqna.json")])
+        preview = _make_preview(log_files=[Path(f"/fake/{PRIMARY_HF_COLUMN}.json")])
 
         with patch(MOCK_PATCH_TARGET, side_effect=mock_read):
             _, parquet_bytes = build_model_card_parquet(preview)
 
         table = _read_parquet(parquet_bytes)
-        arr = table.column("teleqna").to_pylist()[0]
+        arr = table.column(PRIMARY_HF_COLUMN).to_pylist()[0]
         assert arr[1] == 0.0
 
 

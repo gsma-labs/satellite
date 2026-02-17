@@ -83,7 +83,9 @@ def _safe_int(value: object, default: int = 0) -> int:
         return default
 
 
-def _estimate_job_total_units(evals: dict[str, list[str]], settings: EvalSettings) -> int:
+def _estimate_job_total_units(
+    evals: dict[str, list[str]], settings: EvalSettings
+) -> int:
     """Estimate total planned work units for a job from its manifest and settings."""
     total = 0
     limit = settings.limit
@@ -193,7 +195,9 @@ def _aggregate_progress(
                     done = 0
                     if isinstance(progress_entry, dict):
                         done = _safe_int(progress_entry.get("completed_units"), 0)
-                        sidecar_planned = _safe_int(progress_entry.get("planned_units"), 0)
+                        sidecar_planned = _safe_int(
+                            progress_entry.get("planned_units"), 0
+                        )
                         if sidecar_planned > 0:
                             planned = sidecar_planned
                     if done == 0:
@@ -493,7 +497,9 @@ class JobManager:
 
             settings = EvalSettings(
                 limit=inferred_limit if inferred_limit is not None else settings.limit,
-                epochs=inferred_epochs if inferred_epochs is not None else settings.epochs,
+                epochs=inferred_epochs
+                if inferred_epochs is not None
+                else settings.epochs,
                 max_connections=settings.max_connections,
                 token_limit=settings.token_limit,
                 message_limit=settings.message_limit,
@@ -547,7 +553,9 @@ class JobManager:
         settings = EvalSettings(
             limit=raw_settings.get("limit"),
             epochs=raw_settings.get("epochs", defaults.epochs),
-            max_connections=raw_settings.get("max_connections", defaults.max_connections),
+            max_connections=raw_settings.get(
+                "max_connections", defaults.max_connections
+            ),
             token_limit=raw_settings.get("token_limit"),
             message_limit=raw_settings.get("message_limit"),
         )

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from satellite import PACKAGE_ROOT
 from satellite.services.config import EvalSettings
 from satellite.services.evals.runner import EvalResult, EvalRunner
 
@@ -135,6 +136,20 @@ class TestRunEvalSetSubprocess:
 
             call_kwargs = mock_popen.call_args[1]
             assert call_kwargs["start_new_session"] is True
+
+    def test_uses_project_root_cwd_for_uv_resolution(self, tmp_path: Path) -> None:
+        """Worker subprocess sets cwd so uv resolves project outside caller CWD."""
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        runner = EvalRunner(tmp_path)
+
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
+            mock_popen.return_value = _make_mock_popen()
+
+            runner._run_eval_set("job_1", ["teleqna"], "openai/gpt-4", log_dir, EvalSettings())
+
+            call_kwargs = mock_popen.call_args[1]
+            assert call_kwargs["cwd"] == PACKAGE_ROOT.parent.parent
 
     def test_default_settings_have_no_limit(self) -> None:
         """EvalSettings() defaults to limit=None (run all samples)."""

@@ -134,7 +134,10 @@ class SatelliteProgressHooks(Hooks):
             progress.updated_at = _utc_now_iso()
             progress.last_sample_id = data.sample_id
 
-            if progress.planned_units > 0 and progress.completed_units > progress.planned_units:
+            if (
+                progress.planned_units > 0
+                and progress.completed_units > progress.planned_units
+            ):
                 progress.completed_units = progress.planned_units
 
         await self._write()
@@ -163,7 +166,9 @@ class SatelliteProgressHooks(Hooks):
                 if isinstance(total_samples, int) and total_samples > 0:
                     progress.planned_units = total_samples
                 if isinstance(completed_samples, int) and completed_samples >= 0:
-                    progress.completed_units = max(progress.completed_units, completed_samples)
+                    progress.completed_units = max(
+                        progress.completed_units, completed_samples
+                    )
 
         await self._write()
 
@@ -198,4 +203,3 @@ class SatelliteProgressHooks(Hooks):
                     pass  # Progress reporting is best-effort; don't crash the eval.
 
             await anyio.to_thread.run_sync(_write_sync)
-

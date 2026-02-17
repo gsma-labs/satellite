@@ -16,11 +16,13 @@ from textual.app import App
 from textual.binding import Binding
 from textual.reactive import var
 
+from satellite import PACKAGE_ROOT
 from satellite.screens.main import MainScreen
 from satellite.services.evals import EvalRunner, JobManager
 
 INSPECT_VIEW_PORT = 7575
 INSPECT_VIEW_CMD = ("uv", "run", "inspect", "view")
+UV_PROJECT_ROOT = PACKAGE_ROOT.parent.parent
 VIEW_SHUTDOWN_TIMEOUT = 3
 VIEW_HEALTH_CHECK_DELAY = 1.0
 
@@ -97,6 +99,7 @@ class SatelliteApp(App):
         try:
             self._view_process = subprocess.Popen(
                 cmd,
+                cwd=UV_PROJECT_ROOT,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 stdin=subprocess.DEVNULL,
@@ -250,13 +253,10 @@ def main() -> None:
 
     # Evals registry - triggers full inspect-ai initialization
     try:
-        from evals._registry import (  # noqa: F401
-            telelogs,
-            telemath,
-            teleqna,
-            teletables,
-            three_gpp,
-        )
+        import evals._registry as _evals_registry  # noqa: F401
+
+        # Touch __all__ so registry imports are executed before Textual takes over.
+        _ = getattr(_evals_registry, "__all__", ())
     except ImportError:
         pass  # evals not installed, will use fallback metadata
 

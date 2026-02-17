@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from satellite import PACKAGE_ROOT
 
 
 class TestAppViewProcessPipeFdLeak:
@@ -56,6 +57,26 @@ class TestAppViewProcessPipeFdLeak:
 
         call_kwargs = popen_mock.call_args[1]
         assert call_kwargs["start_new_session"] is True
+
+    def test_launch_view_uses_project_root_cwd(
+        self,
+        mock_popen: tuple[MagicMock, MagicMock],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """_launch_view() sets cwd so uv resolves the project off package location."""
+        popen_mock, _ = mock_popen
+        monkeypatch.chdir(tmp_path)
+
+        with patch("satellite.app.MainScreen"):
+            from satellite.app import SatelliteApp
+
+            app = SatelliteApp()
+            app.set_timer = MagicMock()
+            app._launch_view(tmp_path)
+
+        call_kwargs = popen_mock.call_args[1]
+        assert call_kwargs["cwd"] == PACKAGE_ROOT.parent.parent
 
     def test_repeated_launches_no_fd_leak(
         self,
