@@ -50,7 +50,11 @@ def _accepts_full_keyword(task_fn: Callable[..., object]) -> bool:
     try:
         signature = inspect.signature(task_fn)
     except (TypeError, ValueError) as exc:
-        _log.debug("Could not inspect signature for task factory %r: %s", task_fn, exc)
+        _log.debug(
+            "Could not inspect signature for task factory %r (%s)",
+            task_fn,
+            type(exc).__name__,
+        )
         return False
 
     full_param = signature.parameters.get("full")
@@ -86,6 +90,10 @@ def load_task(benchmark_id: str, full: bool = False) -> Task | None:
     Returns:
         An ``inspect_ai.Task`` when the benchmark factory exists. Task factories
         are expected to return ``Task`` instances.
+
+    Raises:
+        TypeError: If the task factory returns a value that is not an
+            ``inspect_ai.Task`` instance.
     """
     config = BENCHMARKS_BY_ID.get(benchmark_id)
     if not config:
