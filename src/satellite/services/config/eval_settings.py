@@ -20,6 +20,7 @@ class EvalSettings:
     max_connections: int = DEFAULT_MAX_CONNECTIONS
     token_limit: int | None = None
     message_limit: int | None = None
+    full_benchmark: bool = False
 
 
 class EvalSettingsManager:
@@ -40,6 +41,7 @@ class EvalSettingsManager:
             max_connections=data.get("max_connections", defaults.max_connections),
             token_limit=data.get("token_limit"),
             message_limit=data.get("message_limit"),
+            full_benchmark=data.get("full_benchmark", False),
         )
 
     def save(self, settings: EvalSettings) -> None:

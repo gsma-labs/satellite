@@ -165,6 +165,8 @@ class EvalRunner:
             config_dict["token_limit"] = settings.token_limit
         if settings.message_limit is not None:
             config_dict["message_limit"] = settings.message_limit
+        if settings.full_benchmark:
+            config_dict["full_benchmark"] = True
         config = json.dumps(config_dict)
 
         process = subprocess.Popen(

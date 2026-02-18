@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from textual.app import App
-from textual.widgets import Button
+from textual.widgets import Button, Switch
 
 from satellite.modals import ModelConfig, TabbedEvalsModal
 from satellite.services.config import EvalSettingsManager
@@ -169,3 +169,30 @@ class TestTabbedEvalsModalButtons:
 
             # Modal should stay open (not dismissed)
             assert isinstance(app.screen, TabbedEvalsModal)
+
+
+class TestTabbedEvalsModalSettings:
+    """Tests for Settings tab widgets."""
+
+    async def test_settings_tab_has_full_benchmark_switch(
+        self,
+        mock_job_manager: MagicMock,
+        sample_model_config: list[ModelConfig],
+    ) -> None:
+        """Settings tab contains a Switch widget with id full-benchmark-switch."""
+        app = TabbedEvalsModalTestApp(
+            model_configs=sample_model_config,
+            job_manager=mock_job_manager,
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+
+            modal = app.screen
+            tabs = list(modal.query_one("#tab-header", TabHeader).query(TabItem))
+
+            # Switch to Settings tab
+            await pilot.click(tabs[2])
+            await pilot.pause()
+
+            assert modal.query_one("#full-benchmark-switch", Switch).value is False

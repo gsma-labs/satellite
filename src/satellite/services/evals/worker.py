@@ -12,7 +12,8 @@ Reads JSON config from stdin:
     "epochs": 1,
     "max_connections": 10,
     "token_limit": null,
-    "message_limit": null
+    "message_limit": null,
+    "full_benchmark": false
 }
 
 Exit codes: 0=success, 1=error, 2=cancelled
@@ -32,13 +33,26 @@ EVAL_LOG_FORMAT = "json"
 EVAL_DISPLAY = "none"
 
 
-def load_task(benchmark_id: str) -> Task | None:
-    """Load a Task by importing its module."""
+def load_task(benchmark_id: str, full: bool = False) -> Task | None:
+    """Load a Task by importing its module.
+
+    Args:
+        benchmark_id: The benchmark identifier (e.g. "teleqna").
+        full: When ``True``, pass ``full=True`` to the task constructor so it
+            uses the full dataset (``GSMA/ot-full-benchmarks``).
+    """
     config = BENCHMARKS_BY_ID.get(benchmark_id)
     if not config:
         return None
     module = import_module(config.module_path)
-    return getattr(module, config.function_name)()
+    task_fn = getattr(module, config.function_name)
+    if full:
+        try:
+            return task_fn(full=True)
+        except TypeError:
+            # Fallback for tasks that don't accept a `full` parameter.
+            return task_fn()
+    return task_fn()
 
 
 def mark_started_logs_cancelled(log_dir: str) -> None:
@@ -60,7 +74,8 @@ def run_evals(config: dict) -> int:
     # This keeps the Satellite UI responsive without parsing large JSON logs repeatedly.
     import satellite.services.evals.inspect_progress_hook  # noqa: F401
 
-    tasks = [t for b in config["benchmarks"] if (t := load_task(b))]
+    full = config.get("full_benchmark", False)
+    tasks = [t for b in config["benchmarks"] if (t := load_task(b, full=full))]
     if not tasks:
         print(f"No valid tasks for benchmarks: {config['benchmarks']}", file=sys.stderr)
         return 1
