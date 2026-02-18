@@ -91,9 +91,11 @@ def get_total_samples(eval_id: str, full: bool = False) -> int:
     fall back to the discovered benchmark metadata.
     """
     overrides = _FULL_SAMPLE_COUNT_OVERRIDES if full else _SAMPLE_COUNT_OVERRIDES
-    if (count := overrides.get(eval_id)) is not None:
+    count = overrides.get(eval_id)
+    if count is not None:
         return count
-    if (config := BENCHMARKS_BY_ID.get(eval_id)) is not None:
+    config = BENCHMARKS_BY_ID.get(eval_id)
+    if config is not None:
         return config.total_samples
     return 0
 

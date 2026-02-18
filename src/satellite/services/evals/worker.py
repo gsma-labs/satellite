@@ -23,6 +23,7 @@ Exit codes: 0=success, 1=error, 2=cancelled
 
 import inspect
 import json
+import logging
 import sys
 from collections.abc import Callable
 from importlib import import_module
@@ -31,17 +32,25 @@ from inspect_ai import Task
 
 from satellite.services.evals.registry import BENCHMARKS_BY_ID
 
+_log = logging.getLogger(__name__)
+
 # JSON enables programmatic parsing for leaderboard aggregation
 EVAL_LOG_FORMAT = "json"
 # Disable rich terminal output; we're headless in a subprocess
 EVAL_DISPLAY = "none"
 
 
-def _accepts_full_keyword(task_fn: Callable[..., Task]) -> bool:
-    """Return ``True`` when ``task_fn`` can be called with ``full=True``."""
+def _accepts_full_keyword(task_fn: Callable[..., object]) -> bool:
+    """Return ``True`` when ``task_fn`` can be called with ``full=True``.
+
+    Task factories should expose explicit keyword parameters (for example
+    ``def teleqna(*, full: bool = False) -> Task``) so this inspection remains
+    predictable.
+    """
     try:
         signature = inspect.signature(task_fn)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        _log.debug("Could not inspect signature for task factory %r: %s", task_fn, exc)
         return False
 
     full_param = signature.parameters.get("full")
@@ -56,6 +65,16 @@ def _accepts_full_keyword(task_fn: Callable[..., Task]) -> bool:
     )
 
 
+def _ensure_task(result: object, benchmark_id: str, function_name: str) -> Task:
+    """Validate task factory output and return it as ``Task``."""
+    if isinstance(result, Task):
+        return result
+    raise TypeError(
+        f"Task factory '{function_name}' for benchmark '{benchmark_id}' returned "
+        f"{type(result).__name__}; expected inspect_ai.Task"
+    )
+
+
 def load_task(benchmark_id: str, full: bool = False) -> Task | None:
     """Load a Task by importing its module.
 
@@ -63,6 +82,10 @@ def load_task(benchmark_id: str, full: bool = False) -> Task | None:
         benchmark_id: The benchmark identifier (e.g. "teleqna").
         full: When ``True``, pass ``full=True`` to the task constructor so it
             uses the full dataset (``GSMA/ot-full-benchmarks``).
+
+    Returns:
+        An ``inspect_ai.Task`` when the benchmark factory exists. Task factories
+        are expected to return ``Task`` instances.
     """
     config = BENCHMARKS_BY_ID.get(benchmark_id)
     if not config:
@@ -72,8 +95,8 @@ def load_task(benchmark_id: str, full: bool = False) -> Task | None:
     if not callable(task_fn):
         return None
     if full and _accepts_full_keyword(task_fn):
-        return task_fn(full=True)
-    return task_fn()
+        return _ensure_task(task_fn(full=True), benchmark_id, config.function_name)
+    return _ensure_task(task_fn(), benchmark_id, config.function_name)
 
 
 def mark_started_logs_cancelled(log_dir: str) -> None:

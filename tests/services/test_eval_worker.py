@@ -7,6 +7,10 @@ import pytest
 from satellite.services.evals import worker
 
 
+class _FakeTask:
+    """Minimal task type for runtime type-check tests."""
+
+
 def _configure_task(monkeypatch: pytest.MonkeyPatch, task_fn) -> None:
     """Point worker registry/imports at a local fake task factory."""
     module = SimpleNamespace(task_factory=task_fn)
@@ -22,11 +26,12 @@ def test_load_task_passes_full_keyword_when_supported(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """load_task(full=True) forwards full=True to compatible factories."""
+    monkeypatch.setattr(worker, "Task", _FakeTask)
     calls: list[bool] = []
 
     def task_factory(*, full: bool = False):
         calls.append(full)
-        return object()
+        return _FakeTask()
 
     _configure_task(monkeypatch, task_factory)
 
@@ -38,11 +43,12 @@ def test_load_task_omits_full_keyword_when_unsupported(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Factories without a full argument are called without keyword args."""
+    monkeypatch.setattr(worker, "Task", _FakeTask)
     calls: list[None] = []
 
     def task_factory():
         calls.append(None)
-        return object()
+        return _FakeTask()
 
     _configure_task(monkeypatch, task_factory)
 
@@ -62,3 +68,16 @@ def test_load_task_does_not_swallow_type_error(
 
     with pytest.raises(TypeError, match="task internals failed"):
         worker.load_task("fake", full=True)
+
+
+def test_load_task_raises_on_non_task_return(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Factories must return Task instances."""
+    monkeypatch.setattr(worker, "Task", _FakeTask)
+
+    def task_factory():
+        return object()
+
+    _configure_task(monkeypatch, task_factory)
+
+    with pytest.raises(TypeError, match="expected inspect_ai.Task"):
+        worker.load_task("fake")
