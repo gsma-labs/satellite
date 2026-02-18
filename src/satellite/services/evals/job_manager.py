@@ -17,7 +17,7 @@ from inspect_ai.log import (
 
 from satellite import PACKAGE_ROOT
 from satellite.services.config import EvalSettings, ModelConfig
-from satellite.services.evals.registry import BENCHMARKS_BY_ID
+from satellite.services.evals.registry import BENCHMARKS_BY_ID, get_total_samples
 
 _log = logging.getLogger(__name__)
 
@@ -95,10 +95,9 @@ def _estimate_job_total_units(
 
     for _, benchmarks in evals.items():
         for benchmark_id in benchmarks:
-            cfg = BENCHMARKS_BY_ID.get(benchmark_id)
-            if cfg is None:
+            if benchmark_id not in BENCHMARKS_BY_ID:
                 continue
-            n = cfg.total_samples
+            n = get_total_samples(benchmark_id, full=settings.full_benchmark)
             if limit is not None and limit > 0:
                 n = min(n, limit)
             total += n * epochs
@@ -570,6 +569,7 @@ class JobManager:
             ),
             token_limit=raw_settings.get("token_limit"),
             message_limit=raw_settings.get("message_limit"),
+            full_benchmark=raw_settings.get("full_benchmark", False),
         )
 
         return data.get("evals", {}), data.get("total_evals", 0), settings

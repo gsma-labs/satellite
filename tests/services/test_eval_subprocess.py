@@ -192,6 +192,47 @@ class TestRunEvalSetSubprocess:
 
             assert config["limit"] == 0
 
+    @pytest.mark.parametrize(
+        ("full_benchmark", "expected_key", "expected_value"),
+        [
+            pytest.param(True, "full_benchmark", True, id="included-when-true"),
+            pytest.param(
+                False, "full_benchmark", None, id="omitted-when-false-default"
+            ),
+        ],
+    )
+    def test_full_benchmark_config_serialization(
+        self,
+        tmp_path: Path,
+        full_benchmark: bool,
+        expected_key: str,
+        expected_value: bool | None,
+    ) -> None:
+        """Config JSON includes full_benchmark only when True."""
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+        runner = EvalRunner(tmp_path)
+
+        with patch("satellite.services.evals.runner.subprocess.Popen") as mock_popen:
+            mock_process = _make_mock_popen()
+            mock_popen.return_value = mock_process
+
+            runner._run_eval_set(
+                "job_1",
+                ["teleqna"],
+                "openai/gpt-4",
+                log_dir,
+                EvalSettings(full_benchmark=full_benchmark),
+            )
+
+            call_kwargs = mock_process.communicate.call_args[1]
+            config = json.loads(call_kwargs["input"])
+
+            if expected_value is None:
+                assert expected_key not in config
+            else:
+                assert config[expected_key] is expected_value
+
     def test_propagates_subprocess_exception(self, tmp_path: Path) -> None:
         """FileNotFoundError propagates when subprocess binary not found (fail fast)."""
         log_dir = tmp_path / "logs"

@@ -71,6 +71,35 @@ _SAMPLE_COUNT_OVERRIDES: dict[str, int] = {
     "srsranbench": 150,
 }
 
+# Full dataset sample counts (from HuggingFace GSMA/ot-full-benchmarks).
+_FULL_SAMPLE_COUNT_OVERRIDES: dict[str, int] = {
+    "teleqna": 10_000,
+    "telelogs": 864,
+    "telemath": 500,
+    "teletables": 500,
+    "three_gpp": 2_000,
+    "oranbench": 1_500,
+    "srsranbench": 1_500,
+}
+
+
+def get_total_samples(eval_id: str, full: bool = False) -> int:
+    """Return the expected sample count for *eval_id*.
+
+    When *full* is ``True`` the count comes from ``_FULL_SAMPLE_COUNT_OVERRIDES``;
+    otherwise from the regular ``_SAMPLE_COUNT_OVERRIDES``. If no override exists,
+    fall back to the discovered benchmark metadata.
+    """
+    overrides = _FULL_SAMPLE_COUNT_OVERRIDES if full else _SAMPLE_COUNT_OVERRIDES
+    count = overrides.get(eval_id)
+    if count is not None:
+        return count
+    config = BENCHMARKS_BY_ID.get(eval_id)
+    if config is not None:
+        return config.total_samples
+    return 0
+
+
 _FALLBACK_BENCHMARK_IDS: tuple[str, ...] = (
     "teleqna",
     "telelogs",

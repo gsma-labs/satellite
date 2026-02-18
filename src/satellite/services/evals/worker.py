@@ -12,19 +12,27 @@ Reads JSON config from stdin:
     "epochs": 1,
     "max_connections": 10,
     "token_limit": null,
-    "message_limit": null
+    "message_limit": null,
+    "full_benchmark": false
 }
+
+If ``full_benchmark`` is omitted, it defaults to ``false`` (sample split).
 
 Exit codes: 0=success, 1=error, 2=cancelled
 """
 
+import inspect
 import json
+import logging
 import sys
+from collections.abc import Callable
 from importlib import import_module
 
 from inspect_ai import Task
 
 from satellite.services.evals.registry import BENCHMARKS_BY_ID
+
+_log = logging.getLogger(__name__)
 
 # JSON enables programmatic parsing for leaderboard aggregation
 EVAL_LOG_FORMAT = "json"
@@ -32,13 +40,71 @@ EVAL_LOG_FORMAT = "json"
 EVAL_DISPLAY = "none"
 
 
-def load_task(benchmark_id: str) -> Task | None:
-    """Load a Task by importing its module."""
+def _accepts_full_keyword(task_fn: Callable[..., object]) -> bool:
+    """Return ``True`` when ``task_fn`` can be called with ``full=True``.
+
+    Task factories should expose explicit keyword parameters (for example
+    ``def teleqna(*, full: bool = False) -> Task``) so this inspection remains
+    predictable.
+    """
+    try:
+        signature = inspect.signature(task_fn)
+    except (TypeError, ValueError) as exc:
+        _log.debug(
+            "Could not inspect signature for task factory %r (%s)",
+            task_fn,
+            type(exc).__name__,
+        )
+        return False
+
+    full_param = signature.parameters.get("full")
+    if full_param is not None and full_param.kind in (
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.KEYWORD_ONLY,
+    ):
+        return True
+    return any(
+        param.kind is inspect.Parameter.VAR_KEYWORD
+        for param in signature.parameters.values()
+    )
+
+
+def _ensure_task(result: object, benchmark_id: str, function_name: str) -> Task:
+    """Validate task factory output and return it as ``Task``."""
+    if isinstance(result, Task):
+        return result
+    raise TypeError(
+        f"Task factory '{function_name}' for benchmark '{benchmark_id}' returned "
+        f"{type(result).__name__}; expected inspect_ai.Task"
+    )
+
+
+def load_task(benchmark_id: str, full: bool = False) -> Task | None:
+    """Load a Task by importing its module.
+
+    Args:
+        benchmark_id: The benchmark identifier (e.g. "teleqna").
+        full: When ``True``, pass ``full=True`` to the task constructor so it
+            uses the full dataset (``GSMA/ot-full-benchmarks``).
+
+    Returns:
+        An ``inspect_ai.Task`` when the benchmark factory exists. Task factories
+        are expected to return ``Task`` instances.
+
+    Raises:
+        TypeError: If the task factory returns a value that is not an
+            ``inspect_ai.Task`` instance.
+    """
     config = BENCHMARKS_BY_ID.get(benchmark_id)
     if not config:
         return None
     module = import_module(config.module_path)
-    return getattr(module, config.function_name)()
+    task_fn = getattr(module, config.function_name, None)
+    if not callable(task_fn):
+        return None
+    if full and _accepts_full_keyword(task_fn):
+        return _ensure_task(task_fn(full=True), benchmark_id, config.function_name)
+    return _ensure_task(task_fn(), benchmark_id, config.function_name)
 
 
 def mark_started_logs_cancelled(log_dir: str) -> None:
@@ -60,7 +126,8 @@ def run_evals(config: dict) -> int:
     # This keeps the Satellite UI responsive without parsing large JSON logs repeatedly.
     import satellite.services.evals.inspect_progress_hook  # noqa: F401
 
-    tasks = [t for b in config["benchmarks"] if (t := load_task(b))]
+    full = config.get("full_benchmark", False)
+    tasks = [t for b in config["benchmarks"] if (t := load_task(b, full=full))]
     if not tasks:
         print(f"No valid tasks for benchmarks: {config['benchmarks']}", file=sys.stderr)
         return 1

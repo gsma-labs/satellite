@@ -19,7 +19,7 @@ from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.timer import Timer
-from textual.widgets import Button, Input, Label, Static
+from textual.widgets import Button, Input, Label, Static, Switch
 
 from satellite.modals.scripts.job_detail_modal import JobDetailModal
 from satellite.modals.scripts.job_list_modal import JobListItem
@@ -294,6 +294,18 @@ class SettingsContent(Vertical):
 
         with VerticalScroll(id="settings-scroll"):
             with HorizontalGroup(classes="settings-row"):
+                yield Label("Full Benchmark:", classes="settings-label")
+                yield Switch(
+                    value=self._settings.full_benchmark,
+                    id="full-benchmark-switch",
+                    classes="settings-switch",
+                )
+                yield Label(
+                    "Uses complete dataset (slower, higher cost)",
+                    classes="settings-hint",
+                )
+
+            with HorizontalGroup(classes="settings-row"):
                 yield Label("Limit:", classes="settings-label")
                 yield Input(
                     str(self._settings.limit)
@@ -383,11 +395,18 @@ class SettingsContent(Vertical):
             ),
             token_limit=parse_optional_int("token-limit-input"),
             message_limit=parse_optional_int("message-limit-input"),
+            full_benchmark=self.query_one("#full-benchmark-switch", Switch).value,
         )
 
     @on(Input.Changed)
     def on_input_changed(self, event: Input.Changed) -> None:
         """Handle input changes - post settings changed message."""
+        event.stop()
+        self.post_message(self.SettingsChanged(self.get_settings()))
+
+    @on(Switch.Changed)
+    def on_switch_changed(self, event: Switch.Changed) -> None:
+        """Handle switch toggle - post settings changed message."""
         event.stop()
         self.post_message(self.SettingsChanged(self.get_settings()))
 
@@ -495,6 +514,8 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         header.add_tab("run-evals", "Evals", closable=False, activate=True)
         header.add_tab("view-progress", "Progress", closable=False, activate=False)
         header.add_tab("settings", "Settings", closable=False, activate=False)
+        # Validate structure at mount-time so focus logic can fail fast if broken.
+        self.query_one("#full-benchmark-switch", Switch)
         self.add_class("-tab-run-evals")
         self.query_one("#eval-list", EvalList).focus()
 
@@ -604,7 +625,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
             return
 
         # Content widgets handle their own arrow key navigation
-        if isinstance(focused, (EvalList, JobListContent, Input)):
+        if isinstance(focused, (EvalList, JobListContent, Input, Switch)):
             return
 
         if isinstance(focused, (TabHeader, TabItem)):
@@ -632,9 +653,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
             self.query_one("#view-progress-pane", JobListContent).focus()
             return
         if self.active_tab == "settings":
-            inputs = self.query("#settings-pane Input")
-            if inputs:
-                inputs.first().focus()
+            self.query_one("#full-benchmark-switch", Switch).focus()
 
     def on_run_evals_content_run_requested(
         self, event: RunEvalsContent.RunRequested
