@@ -81,3 +81,34 @@ def test_load_task_raises_on_non_task_return(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(TypeError, match="expected inspect_ai.Task"):
         worker.load_task("fake")
+
+
+def test_load_task_propagates_non_type_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Factory exceptions other than TypeError should propagate."""
+
+    def task_factory(*, full: bool = False):
+        raise RuntimeError("task execution failed")
+
+    _configure_task(monkeypatch, task_factory)
+
+    with pytest.raises(RuntimeError, match="task execution failed"):
+        worker.load_task("fake", full=True)
+
+
+def test_load_task_passes_full_keyword_to_var_keyword_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Factories with **kwargs accept the full parameter."""
+    monkeypatch.setattr(worker, "Task", _FakeTask)
+    calls: list[dict[str, bool]] = []
+
+    def task_factory(**kwargs):
+        calls.append(kwargs)
+        return _FakeTask()
+
+    _configure_task(monkeypatch, task_factory)
+
+    assert worker.load_task("fake", full=True) is not None
+    assert calls == [{"full": True}]
