@@ -396,9 +396,7 @@ class SettingsContent(Vertical):
             ),
             token_limit=parse_optional_int("token-limit-input"),
             message_limit=parse_optional_int("message-limit-input"),
-            full_benchmark=self.query_one(
-                "#full-benchmark-switch", Switch
-            ).value,
+            full_benchmark=self.query_one("#full-benchmark-switch", Switch).value,
         )
 
     @on(Input.Changed)
