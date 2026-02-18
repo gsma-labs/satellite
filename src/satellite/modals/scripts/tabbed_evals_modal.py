@@ -15,6 +15,7 @@ from textual import events, on, work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import HorizontalGroup, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
@@ -655,7 +656,7 @@ class TabbedEvalsModal(ModalScreen[Job | None]):
         if self.active_tab == "settings":
             try:
                 self.query_one("#full-benchmark-switch", Switch).focus()
-            except Exception:
+            except NoMatches:
                 inputs = self.query("#settings-pane Input")
                 if inputs:
                     inputs.first().focus()

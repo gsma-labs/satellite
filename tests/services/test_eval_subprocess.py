@@ -196,7 +196,9 @@ class TestRunEvalSetSubprocess:
         ("full_benchmark", "expected_key", "expected_value"),
         [
             pytest.param(True, "full_benchmark", True, id="included-when-true"),
-            pytest.param(False, "full_benchmark", None, id="omitted-when-false"),
+            pytest.param(
+                False, "full_benchmark", None, id="omitted-when-false-default"
+            ),
         ],
     )
     def test_full_benchmark_config_serialization(

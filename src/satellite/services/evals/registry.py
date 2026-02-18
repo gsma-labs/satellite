@@ -87,10 +87,15 @@ def get_total_samples(eval_id: str, full: bool = False) -> int:
     """Return the expected sample count for *eval_id*.
 
     When *full* is ``True`` the count comes from ``_FULL_SAMPLE_COUNT_OVERRIDES``;
-    otherwise from the regular ``_SAMPLE_COUNT_OVERRIDES``.
+    otherwise from the regular ``_SAMPLE_COUNT_OVERRIDES``. If no override exists,
+    fall back to the discovered benchmark metadata.
     """
     overrides = _FULL_SAMPLE_COUNT_OVERRIDES if full else _SAMPLE_COUNT_OVERRIDES
-    return overrides.get(eval_id, 0)
+    if (count := overrides.get(eval_id)) is not None:
+        return count
+    if (config := BENCHMARKS_BY_ID.get(eval_id)) is not None:
+        return config.total_samples
+    return 0
 
 
 _FALLBACK_BENCHMARK_IDS: tuple[str, ...] = (

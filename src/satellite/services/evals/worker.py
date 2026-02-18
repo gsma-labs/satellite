@@ -16,11 +16,15 @@ Reads JSON config from stdin:
     "full_benchmark": false
 }
 
+If ``full_benchmark`` is omitted, it defaults to ``false`` (sample split).
+
 Exit codes: 0=success, 1=error, 2=cancelled
 """
 
+import inspect
 import json
 import sys
+from collections.abc import Callable
 from importlib import import_module
 
 from inspect_ai import Task
@@ -31,6 +35,25 @@ from satellite.services.evals.registry import BENCHMARKS_BY_ID
 EVAL_LOG_FORMAT = "json"
 # Disable rich terminal output; we're headless in a subprocess
 EVAL_DISPLAY = "none"
+
+
+def _accepts_full_keyword(task_fn: Callable[..., Task]) -> bool:
+    """Return ``True`` when ``task_fn`` can be called with ``full=True``."""
+    try:
+        signature = inspect.signature(task_fn)
+    except (TypeError, ValueError):
+        return False
+
+    full_param = signature.parameters.get("full")
+    if full_param is not None and full_param.kind in (
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.KEYWORD_ONLY,
+    ):
+        return True
+    return any(
+        param.kind is inspect.Parameter.VAR_KEYWORD
+        for param in signature.parameters.values()
+    )
 
 
 def load_task(benchmark_id: str, full: bool = False) -> Task | None:
@@ -45,13 +68,11 @@ def load_task(benchmark_id: str, full: bool = False) -> Task | None:
     if not config:
         return None
     module = import_module(config.module_path)
-    task_fn = getattr(module, config.function_name)
-    if full:
-        try:
-            return task_fn(full=True)
-        except TypeError:
-            # Fallback for tasks that don't accept a `full` parameter.
-            return task_fn()
+    task_fn = getattr(module, config.function_name, None)
+    if not callable(task_fn):
+        return None
+    if full and _accepts_full_keyword(task_fn):
+        return task_fn(full=True)
     return task_fn()
 
 
