@@ -1,17 +1,23 @@
 """Tests for ConfiguredModelsList widget.
 
-Bug 3 (FIXED): Button IDs with slashes caused BadIdentifier errors.
+Bug 3 (FIXED): Button IDs with special characters caused BadIdentifier errors.
 
-Model paths like "openai/gpt-4o" were used directly in button IDs,
-causing Textual's DOM to reject them because "/" is not a valid
-identifier character.
+Model paths like "openai/gpt-4o" or "ollama/gpt-oss:120b" were used
+directly in button IDs, causing Textual's DOM to reject them because
+"/", ".", ":", and other special characters are not valid identifier
+characters.
 
-Fix: Replace "/" with "-" when creating button IDs.
+Fix: Sanitize using an allowlist — keep only alphanumeric, hyphens, and
+underscores; replace everything else with "-".
 
 This is a regression suite to ensure invalid characters are sanitized.
 """
 
+import re
+
 from satellite.widgets.configured_models_list import _sanitize_model_path_for_id
+
+VALID_ID_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
 
 
 class TestButtonIdSanitization:
@@ -42,12 +48,7 @@ class TestButtonIdSanitization:
         sanitized_id = _sanitize_model_path_for_id(normalized_path)
         button_id = f"delete-{sanitized_id}"
 
-        # Textual identifiers: letters, numbers, underscores, hyphens only
-        # Must not begin with a number
-        import re
-        valid_id_pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
-
-        assert re.match(valid_id_pattern, button_id), (
+        assert VALID_ID_PATTERN.match(button_id), (
             f"Button ID '{button_id}' should be a valid Textual identifier"
         )
 
@@ -57,11 +58,8 @@ class TestButtonIdSanitization:
         sanitized_id = _sanitize_model_path_for_id(normalized_path)
         button_id = f"delete-{sanitized_id}"
 
-        import re
-        valid_id_pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
-
         assert "." not in button_id, "Sanitized button ID should not contain dots"
-        assert re.match(valid_id_pattern, button_id), (
+        assert VALID_ID_PATTERN.match(button_id), (
             f"Button ID '{button_id}' should be a valid Textual identifier"
         )
 
@@ -71,14 +69,16 @@ class TestButtonIdSanitization:
         sanitized_id = _sanitize_model_path_for_id(normalized_path)
         button_id = f"delete-{sanitized_id}"
 
-        import re
-        valid_id_pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
-
         assert ":" not in sanitized_id, "Sanitized ID should not contain colons"
         assert button_id == "delete-ollama-gpt-oss-120b"
-        assert re.match(valid_id_pattern, button_id), (
+        assert VALID_ID_PATTERN.match(button_id), (
             f"Button ID '{button_id}' should be a valid Textual identifier"
         )
+
+    def test_preserves_hyphens_and_underscores(self) -> None:
+        """Hyphens and underscores are valid in Textual IDs and should be kept."""
+        sanitized_id = _sanitize_model_path_for_id("my_model-name")
+        assert sanitized_id == "my_model-name"
 
     def test_original_path_preserved_for_delete_message(self) -> None:
         """The original normalized path should still be used for delete logic.
@@ -103,9 +103,6 @@ class TestTextualIdentifierRules:
 
     def test_valid_identifiers(self) -> None:
         """These are valid Textual identifiers."""
-        import re
-        valid_id_pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
-
         valid_ids = [
             "delete-openai-gpt-4o",
             "delete-anthropic-claude-3",
@@ -115,22 +112,20 @@ class TestTextualIdentifierRules:
         ]
 
         for id_ in valid_ids:
-            assert re.match(valid_id_pattern, id_), f"'{id_}' should be valid"
+            assert VALID_ID_PATTERN.match(id_), f"'{id_}' should be valid"
 
     def test_invalid_identifiers(self) -> None:
         """These are INVALID Textual identifiers."""
-        import re
-        valid_id_pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
-
         invalid_ids = [
             "delete-openai/gpt-4o",  # Contains slash (THE BUG)
             "1-starts-with-number",  # Starts with number
             "has spaces",  # Contains space
             "has.dot",  # Contains dot
+            "has:colon",  # Contains colon
         ]
 
         for id_ in invalid_ids:
-            assert not re.match(valid_id_pattern, id_), f"'{id_}' should be invalid"
+            assert not VALID_ID_PATTERN.match(id_), f"'{id_}' should be invalid"
 
     def test_slash_is_invalid_character(self) -> None:
         """Forward slash is not allowed in Textual identifiers.
