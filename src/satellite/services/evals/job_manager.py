@@ -260,7 +260,9 @@ def read_status(model_dir: Path) -> JobStatus:
     """Read status from inspect_ai log files."""
     logs = list(list_eval_logs(str(model_dir)))
     if not logs:
-        return "error"
+        # Runner creates per-model directories before each model actually starts.
+        # During that startup window, missing logs are expected and not an error.
+        return "running"
 
     statuses = [
         _map_log_status(log)

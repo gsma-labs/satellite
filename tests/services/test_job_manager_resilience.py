@@ -9,6 +9,7 @@ from satellite.services.evals import JobManager
 from satellite.services.evals.job_manager import (
     _aggregate_progress,
     _load_job_results,
+    read_status,
 )
 
 
@@ -75,6 +76,76 @@ class TestJobManagerFolderDeletion:
 
 class TestJobManagerInProgressLogs:
     """Tests that in-progress/unreadable logs do not crash polling paths."""
+
+    def test_read_status_returns_running_when_no_logs(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """No logs yet is a startup state and should not surface as error."""
+        model_dir = tmp_path / "model-a"
+        model_dir.mkdir()
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.list_eval_logs",
+            lambda *_args, **_kwargs: [],
+        )
+
+        assert read_status(model_dir) == "running"
+
+    def test_issue_32_no_false_error_for_not_started_models(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Sequential multi-model polling should not show error for queued models."""
+        model_dirs = {
+            "model-a": tmp_path / "model-a",
+            "model-b": tmp_path / "model-b",
+            "model-c": tmp_path / "model-c",
+        }
+        for model_dir in model_dirs.values():
+            model_dir.mkdir()
+
+        logs_by_model: dict[str, list[SimpleNamespace]] = {
+            "model-a": [],
+            "model-b": [],
+            "model-c": [],
+        }
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager.list_eval_logs",
+            lambda path, *_args, **_kwargs: list(logs_by_model[Path(str(path)).name]),
+        )
+
+        monkeypatch.setattr(
+            "satellite.services.evals.job_manager._read_eval_log_header_safe",
+            lambda log_ref: SimpleNamespace(status=log_ref.status),
+        )
+
+        phases = [
+            (
+                {
+                    "model-a": [SimpleNamespace(status="started", size=1)],
+                    "model-b": [],
+                    "model-c": [],
+                },
+                {"model-b", "model-c"},
+            ),
+            (
+                {
+                    "model-a": [SimpleNamespace(status="success", size=1)],
+                    "model-b": [SimpleNamespace(status="started", size=1)],
+                    "model-c": [],
+                },
+                {"model-c"},
+            ),
+        ]
+
+        for phase_logs, pending_models in phases:
+            logs_by_model.update(phase_logs)
+            statuses = {
+                model: read_status(model_dir)
+                for model, model_dir in model_dirs.items()
+            }
+            for model in pending_models:
+                assert statuses[model] != "error"
 
     def test_load_job_results_skips_unreadable_log(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
