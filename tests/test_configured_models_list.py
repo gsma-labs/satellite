@@ -8,10 +8,10 @@ identifier character.
 
 Fix: Replace "/" with "-" when creating button IDs.
 
-This is a regression test to ensure the bug doesn't return.
+This is a regression suite to ensure invalid characters are sanitized.
 """
 
-import pytest
+from satellite.widgets.configured_models_list import _sanitize_model_path_for_id
 
 
 class TestButtonIdSanitization:
@@ -22,9 +22,8 @@ class TestButtonIdSanitization:
 
         This tests the sanitization logic that was added to fix the bug.
         """
-        # Simulate the fix that was applied
         normalized_path = "openai/gpt-4o"
-        sanitized_id = normalized_path.replace("/", "-")
+        sanitized_id = _sanitize_model_path_for_id(normalized_path)
 
         assert "/" not in sanitized_id, "Sanitized ID should not contain slashes"
         assert sanitized_id == "openai-gpt-4o", "Slashes should become hyphens"
@@ -32,7 +31,7 @@ class TestButtonIdSanitization:
     def test_multiple_slashes_all_replaced(self) -> None:
         """Model paths with multiple slashes should have all replaced."""
         normalized_path = "openrouter/openai/gpt-4o-mini"
-        sanitized_id = normalized_path.replace("/", "-")
+        sanitized_id = _sanitize_model_path_for_id(normalized_path)
 
         assert sanitized_id == "openrouter-openai-gpt-4o-mini"
         assert sanitized_id.count("/") == 0
@@ -40,7 +39,7 @@ class TestButtonIdSanitization:
     def test_button_id_format_without_dots(self) -> None:
         """Button ID should be valid when model has no dots."""
         normalized_path = "google/gemini-pro"
-        sanitized_id = normalized_path.replace("/", "-")
+        sanitized_id = _sanitize_model_path_for_id(normalized_path)
         button_id = f"delete-{sanitized_id}"
 
         # Textual identifiers: letters, numbers, underscores, hyphens only
@@ -52,28 +51,34 @@ class TestButtonIdSanitization:
             f"Button ID '{button_id}' should be a valid Textual identifier"
         )
 
-    def test_button_id_with_dots_is_invalid(self) -> None:
-        """Bug 3b: Model names with dots also create invalid IDs.
-
-        Current fix only handles slashes, but dots are also invalid.
-        Example: google/gemini-2.5-pro -> delete-google-gemini-2.5-pro
-        The "2.5" part contains a dot which is invalid.
-
-        This test documents that dots are NOT yet handled.
-        """
+    def test_button_id_with_dots_is_sanitized(self) -> None:
+        """Model names with dots should be sanitized to valid Textual IDs."""
         normalized_path = "google/gemini-2.5-pro"
-        sanitized_id = normalized_path.replace("/", "-")  # Only replaces slashes!
+        sanitized_id = _sanitize_model_path_for_id(normalized_path)
         button_id = f"delete-{sanitized_id}"
 
         import re
         valid_id_pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
 
-        # This FAILS because dot is still in the ID
-        # Bug: dots should also be sanitized
-        assert not re.match(valid_id_pattern, button_id), (
-            f"Bug: '{button_id}' contains a dot which is invalid"
+        assert "." not in button_id, "Sanitized button ID should not contain dots"
+        assert re.match(valid_id_pattern, button_id), (
+            f"Button ID '{button_id}' should be a valid Textual identifier"
         )
-        assert "." in button_id, "Dot is still present (not sanitized)"
+
+    def test_colon_replaced_in_sanitized_id(self) -> None:
+        """Colons in model paths should be replaced with hyphens for IDs."""
+        normalized_path = "ollama/gpt-oss:120b"
+        sanitized_id = _sanitize_model_path_for_id(normalized_path)
+        button_id = f"delete-{sanitized_id}"
+
+        import re
+        valid_id_pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
+
+        assert ":" not in sanitized_id, "Sanitized ID should not contain colons"
+        assert button_id == "delete-ollama-gpt-oss-120b"
+        assert re.match(valid_id_pattern, button_id), (
+            f"Button ID '{button_id}' should be a valid Textual identifier"
+        )
 
     def test_original_path_preserved_for_delete_message(self) -> None:
         """The original normalized path should still be used for delete logic.
@@ -82,7 +87,7 @@ class TestButtonIdSanitization:
         identifying which model to delete.
         """
         original_path = "openai/gpt-4o"
-        sanitized_id = original_path.replace("/", "-")
+        sanitized_id = _sanitize_model_path_for_id(original_path)
 
         # These should be different
         assert original_path != sanitized_id
