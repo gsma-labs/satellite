@@ -145,7 +145,7 @@ class TestJobManagerInProgressLogs:
                 for model, model_dir in model_dirs.items()
             }
             for model in pending_models:
-                assert statuses[model] != "error"
+                assert statuses[model] == "running"
 
     def test_load_job_results_skips_unreadable_log(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

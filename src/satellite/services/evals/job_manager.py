@@ -257,11 +257,16 @@ def _parse_eval_set(eval_set_file: Path) -> tuple[str, list[str]] | None:
 
 
 def read_status(model_dir: Path) -> JobStatus:
-    """Read status from inspect_ai log files."""
+    """Read model status from inspect_ai log files.
+
+    No logs is treated as ``"running"`` because model directories are created
+    before the first log appears. This avoids false ``"error"`` during startup.
+    Callers should pair this with higher-level lifecycle signals (runner exit,
+    timeout, cancelled marker) because a crash before first log is ambiguous.
+    """
     logs = list(list_eval_logs(str(model_dir)))
     if not logs:
-        # Runner creates per-model directories before each model actually starts.
-        # During that startup window, missing logs are expected and not an error.
+        # Missing logs is expected during startup, so keep polling.
         return "running"
 
     statuses = [

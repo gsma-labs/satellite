@@ -20,10 +20,10 @@ from satellite.services.evals import job_manager as jm
 class _FakeLogRef:
     """Simple stand-in for inspect log references."""
 
-    def __init__(self, token: str, size: int = 1) -> None:
+    def __init__(self, token: str, root: Path, size: int = 1) -> None:
         self.token = token
         self.size = size
-        self.name = f"file:///tmp/{token}.json"
+        self.name = (root / f"{token}.json").as_uri()
 
     def __repr__(self) -> str:
         return self.token
@@ -46,12 +46,12 @@ def _format_statuses(statuses: dict[str, str]) -> str:
     return ", ".join(f"{model}={status}" for model, status in statuses.items())
 
 
-def _build_phase_data() -> list[tuple[dict[str, list[_FakeLogRef]], set[str]]]:
+def _build_phase_data(root: Path) -> list[tuple[dict[str, list[_FakeLogRef]], set[str]]]:
     """Return (logs_by_model, pending_models) for each simulated phase."""
     return [
         (
             {
-                "model-a": [_FakeLogRef("a-started")],
+                "model-a": [_FakeLogRef("a-started", root)],
                 "model-b": [],
                 "model-c": [],
             },
@@ -59,17 +59,17 @@ def _build_phase_data() -> list[tuple[dict[str, list[_FakeLogRef]], set[str]]]:
         ),
         (
             {
-                "model-a": [_FakeLogRef("a-success")],
-                "model-b": [_FakeLogRef("b-started")],
+                "model-a": [_FakeLogRef("a-success", root)],
+                "model-b": [_FakeLogRef("b-started", root)],
                 "model-c": [],
             },
             {"model-c"},
         ),
         (
             {
-                "model-a": [_FakeLogRef("a-success")],
-                "model-b": [_FakeLogRef("b-success")],
-                "model-c": [_FakeLogRef("c-started")],
+                "model-a": [_FakeLogRef("a-success", root)],
+                "model-b": [_FakeLogRef("b-success", root)],
+                "model-c": [_FakeLogRef("c-started", root)],
             },
             set(),
         ),
@@ -90,11 +90,11 @@ def _build_header_lookup() -> dict[str, SimpleNamespace]:
 def _run_repro(poll_interval_ms: int, duration_s: float) -> bool:
     """Run deterministic polling simulation and return True if false-error observed."""
     total_ticks = max(1, int((duration_s * 1000) / poll_interval_ms))
-    phase_data = _build_phase_data()
     header_lookup = _build_header_lookup()
 
     with tempfile.TemporaryDirectory(prefix="issue32_headless_repro_") as tmp:
         root = Path(tmp)
+        phase_data = _build_phase_data(root)
         model_dirs = {
             "model-a": root / "model-a",
             "model-b": root / "model-b",
