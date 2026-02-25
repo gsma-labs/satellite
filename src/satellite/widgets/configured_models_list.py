@@ -15,6 +15,11 @@ if TYPE_CHECKING:
     from satellite.services.config import ModelConfig
 
 
+def _sanitize_model_path_for_id(model_path: str) -> str:
+    """Sanitize a model path for use in Textual widget identifiers."""
+    return model_path.replace("/", "-").replace(".", "-").replace(":", "-")
+
+
 class ConfiguredModelItem(Static):
     """A single model entry in the configured models list.
 
@@ -81,7 +86,7 @@ class ConfiguredModelItem(Static):
         """Compose the model item layout."""
         yield Label(f"[{self._config.provider}]", classes="provider-badge")
         yield Label(self._config.model, classes="model-name model-info")
-        sanitized_id = self._normalized_path.replace("/", "-").replace(".", "-")
+        sanitized_id = _sanitize_model_path_for_id(self._normalized_path)
         yield Button("x", classes="delete-btn", id=f"delete-{sanitized_id}")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
