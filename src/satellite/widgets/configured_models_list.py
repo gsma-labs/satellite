@@ -16,8 +16,13 @@ if TYPE_CHECKING:
 
 
 def _sanitize_model_path_for_id(model_path: str) -> str:
-    """Sanitize a model path for use in Textual widget identifiers."""
-    return model_path.replace("/", "-").replace(".", "-").replace(":", "-")
+    """Sanitize a model path for use in Textual widget identifiers.
+
+    Uses an allowlist approach: only alphanumeric characters, hyphens, and
+    underscores are kept. Everything else is replaced with a hyphen.
+    This matches the pattern used in env_var_item.py.
+    """
+    return "".join(c if c.isalnum() or c in "-_" else "-" for c in model_path)
 
 
 class ConfiguredModelItem(Static):

@@ -274,6 +274,102 @@ class TestMissingStderr:
         assert arr[1] == 0.0
 
 
+class TestEpochNormalization:
+    """Verify n_samples is divided by epochs to get unique sample count."""
+
+    def test_epochs_3_divides_samples(self) -> None:
+        """With epochs=3, n_samples in parquet should be total_samples // 3."""
+
+        class _Config:
+            epochs = 3
+
+        class _EpochEval:
+            def __init__(self) -> None:
+                self.model = "openai/gpt-4o"
+                self.task = PRIMARY_BENCH_ID
+                self.config = _Config()
+
+        class _EpochLog:
+            def __init__(self) -> None:
+                self.eval = _EpochEval()
+                self.results = _Results(
+                    scores=[_Score(0.85, 0.01)],
+                    total_samples=3000,  # 1000 unique * 3 epochs
+                )
+
+        logs = {f"/fake/{PRIMARY_HF_COLUMN}.json": _EpochLog()}
+
+        def mock_read(path: str, header_only: bool = False) -> object:
+            return logs[path]
+
+        preview = _make_preview(log_files=[Path(f"/fake/{PRIMARY_HF_COLUMN}.json")])
+
+        with patch(MOCK_PATCH_TARGET, side_effect=mock_read):
+            _, parquet_bytes = build_model_card_parquet(preview)
+
+        table = _read_parquet(parquet_bytes)
+        arr = table.column(PRIMARY_HF_COLUMN).to_pylist()[0]
+        # Should be 1000 (3000 // 3), not 3000
+        assert arr[2] == 1000.0
+
+    def test_epochs_1_no_division(self) -> None:
+        """With epochs=1, n_samples should remain unchanged."""
+
+        class _Config:
+            epochs = 1
+
+        class _EpochEval:
+            def __init__(self) -> None:
+                self.model = "openai/gpt-4o"
+                self.task = PRIMARY_BENCH_ID
+                self.config = _Config()
+
+        class _EpochLog:
+            def __init__(self) -> None:
+                self.eval = _EpochEval()
+                self.results = _Results(
+                    scores=[_Score(0.85, 0.01)],
+                    total_samples=1000,
+                )
+
+        logs = {f"/fake/{PRIMARY_HF_COLUMN}.json": _EpochLog()}
+
+        def mock_read(path: str, header_only: bool = False) -> object:
+            return logs[path]
+
+        preview = _make_preview(log_files=[Path(f"/fake/{PRIMARY_HF_COLUMN}.json")])
+
+        with patch(MOCK_PATCH_TARGET, side_effect=mock_read):
+            _, parquet_bytes = build_model_card_parquet(preview)
+
+        table = _read_parquet(parquet_bytes)
+        arr = table.column(PRIMARY_HF_COLUMN).to_pylist()[0]
+        assert arr[2] == 1000.0
+
+    def test_no_config_no_division(self) -> None:
+        """Without config/epochs, n_samples should remain unchanged."""
+        logs = {
+            f"/fake/{PRIMARY_HF_COLUMN}.json": _EvalLog(
+                PRIMARY_BENCH_ID,
+                0.85,
+                1000,
+                stderr=0.01,
+            ),
+        }
+
+        def mock_read(path: str, header_only: bool = False) -> object:
+            return logs[path]
+
+        preview = _make_preview(log_files=[Path(f"/fake/{PRIMARY_HF_COLUMN}.json")])
+
+        with patch(MOCK_PATCH_TARGET, side_effect=mock_read):
+            _, parquet_bytes = build_model_card_parquet(preview)
+
+        table = _read_parquet(parquet_bytes)
+        arr = table.column(PRIMARY_HF_COLUMN).to_pylist()[0]
+        assert arr[2] == 1000.0
+
+
 class TestErrorCases:
     """Verify proper error handling for invalid inputs."""
 
