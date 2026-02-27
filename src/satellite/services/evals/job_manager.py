@@ -97,7 +97,7 @@ def _estimate_job_total_units(
         for benchmark_id in benchmarks:
             if benchmark_id not in BENCHMARKS_BY_ID:
                 continue
-            n = get_total_samples(benchmark_id, full=settings.full_benchmark)
+            n = get_total_samples(benchmark_id)
             if limit is not None and limit > 0:
                 n = min(n, limit)
             total += n * epochs
@@ -576,7 +576,6 @@ class JobManager:
             ),
             token_limit=raw_settings.get("token_limit"),
             message_limit=raw_settings.get("message_limit"),
-            full_benchmark=raw_settings.get("full_benchmark", False),
         )
 
         return data.get("evals", {}), data.get("total_evals", 0), settings

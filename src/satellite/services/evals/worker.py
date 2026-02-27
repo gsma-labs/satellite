@@ -12,11 +12,8 @@ Reads JSON config from stdin:
     "epochs": 1,
     "max_connections": 10,
     "token_limit": null,
-    "message_limit": null,
-    "full_benchmark": false
+    "message_limit": null
 }
-
-If ``full_benchmark`` is omitted, it defaults to ``false`` (sample split).
 
 Exit codes: 0=success, 1=error, 2=cancelled
 """
@@ -126,8 +123,7 @@ def run_evals(config: dict) -> int:
     # This keeps the Satellite UI responsive without parsing large JSON logs repeatedly.
     import satellite.services.evals.inspect_progress_hook  # noqa: F401
 
-    full = config.get("full_benchmark", False)
-    tasks = [t for b in config["benchmarks"] if (t := load_task(b, full=full))]
+    tasks = [t for b in config["benchmarks"] if (t := load_task(b, full=False))]
     if not tasks:
         print(f"No valid tasks for benchmarks: {config['benchmarks']}", file=sys.stderr)
         return 1
