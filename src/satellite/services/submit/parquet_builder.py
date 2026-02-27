@@ -117,6 +117,13 @@ def _extract_score(log: EvalLog) -> tuple[str, float, float, int] | None:
 
     n_samples = log.results.total_samples
 
+    # Inspect AI total_samples = unique_samples * epochs.  The leaderboard
+    # expects the unique (per-epoch) count, so divide out the epoch multiplier.
+    config = getattr(log.eval, "config", None)
+    epochs = getattr(config, "epochs", None) if config else None
+    if isinstance(epochs, int) and epochs > 1:
+        n_samples = n_samples // epochs
+
     return (bench.hf_column, score_pct, stderr_pct, n_samples)
 
 
