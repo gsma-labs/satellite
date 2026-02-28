@@ -22,8 +22,10 @@ if TYPE_CHECKING:
 
 MODEL_CARDS_DIR = "model_cards"
 
-# Parquet score columns in registry order (deduplicated by hf_column).
-SCORE_COLUMNS = tuple(dict.fromkeys(b.hf_column for b in BENCHMARKS))
+# Parquet score columns in registry order (deduplicated by benchmark id).
+# Uses b.id (e.g. "three_gpp") to match the HuggingFace dataset schema,
+# NOT b.hf_column which is the evals dataset config name (e.g. "3gpp_tsg").
+SCORE_COLUMNS = tuple(dict.fromkeys(b.id for b in BENCHMARKS))
 
 _PATH_TRAVERSAL_PATTERNS = ("..", "/", "\\")
 
@@ -43,11 +45,11 @@ def _validate_safe_path_component(name: str) -> str:
 
 
 def build_model_card_parquet(preview: SubmitPreview) -> tuple[str, bytes]:
-    """Build a parquet file matching the leaderboard schema.
+    """Build a parquet file matching the HuggingFace leaderboard schema.
 
     Reads each log file with header_only=True (fast — skips full
-    trajectory data), extracts per-benchmark accuracy, stderr, and
-    sample count, then writes a single-row parquet.
+    trajectory data), extracts per-benchmark accuracy and stderr,
+    then writes a single-row parquet with string-encoded scores.
 
     Args:
         preview: The submission preview containing model info and log paths.
@@ -65,8 +67,9 @@ def build_model_card_parquet(preview: SubmitPreview) -> tuple[str, bytes]:
     if not benchmark_scores:
         raise ValueError("No valid benchmark scores found in log files")
 
-    model_display = _format_model_display(preview)
-    row = _build_row(model_display, benchmark_scores)
+    _, model_name = preview.model.split("/", 1)
+    provider_display = preview.provider.capitalize()
+    row = _build_row(model_name, provider_display, benchmark_scores)
     parquet_bytes = _write_parquet(row)
 
     remote_path = f"{MODEL_CARDS_DIR}/{safe_dir_name}.parquet"
@@ -75,27 +78,30 @@ def build_model_card_parquet(preview: SubmitPreview) -> tuple[str, bytes]:
 
 def _collect_benchmark_scores(
     log_files: list[Path],
-) -> dict[str, tuple[float, float, int]]:
-    """Extract (score_pct, stderr_pct, n_samples) per benchmark column.
+) -> dict[str, tuple[float, float]]:
+    """Extract (score_01, stderr_01) per benchmark id.
 
     Returns:
-        Dict mapping hf_column name to (score, stderr, n_samples).
+        Dict mapping benchmark id to (score, stderr) in 0-1 scale.
     """
-    scores: dict[str, tuple[float, float, int]] = {}
+    scores: dict[str, tuple[float, float]] = {}
 
     for log_path in log_files:
         log = read_eval_log(str(log_path), header_only=True)
         extracted = _extract_score(log)
         if extracted is None:
             continue
-        hf_column, score_pct, stderr_pct, n_samples = extracted
-        scores[hf_column] = (score_pct, stderr_pct, n_samples)
+        bench_id, score_01, stderr_01 = extracted
+        scores[bench_id] = (score_01, stderr_01)
 
     return scores
 
 
-def _extract_score(log: EvalLog) -> tuple[str, float, float, int] | None:
-    """Extract (hf_column, score_pct, stderr_pct, n_samples) from one log."""
+def _extract_score(log: EvalLog) -> tuple[str, float, float] | None:
+    """Extract (bench_id, score_01, stderr_01) from one log.
+
+    Scores are kept in 0-1 scale to match the HuggingFace dataset schema.
+    """
     if not log.eval or not log.eval.task:
         return None
     if not log.results or not log.results.scores:
@@ -110,59 +116,54 @@ def _extract_score(log: EvalLog) -> tuple[str, float, float, int] | None:
     if accuracy is None:
         return None
 
-    score_pct = round(accuracy.value * 100, 2)
+    score_01 = round(accuracy.value, 6)
 
     stderr_metric = log.results.scores[0].metrics.get("stderr")
-    stderr_pct = round(stderr_metric.value * 100, 6) if stderr_metric else 0.0
+    stderr_01 = round(stderr_metric.value, 6) if stderr_metric else 0.0
 
-    n_samples = log.results.total_samples
-
-    return (bench.hf_column, score_pct, stderr_pct, n_samples)
-
-
-def _format_model_display(preview: SubmitPreview) -> str:
-    """Format model name as 'short_name (Provider)' for the parquet row."""
-    _, model_name = preview.model.split("/", 1)
-    provider_display = preview.provider.capitalize()
-    return f"{model_name} ({provider_display})"
+    return (bench.id, score_01, stderr_01)
 
 
 def _build_row(
-    model_display: str,
-    benchmark_scores: dict[str, tuple[float, float, int]],
+    model_name: str,
+    provider: str,
+    benchmark_scores: dict[str, tuple[float, float]],
 ) -> dict[str, object]:
-    """Build a single-row dict matching the leaderboard schema."""
+    """Build a single-row dict matching the HuggingFace leaderboard schema.
+
+    Scores are stored as string-encoded "[score, stderr]" at 0-1 scale.
+    """
     row: dict[str, object] = {
-        "model": model_display,
-        "date": date.today().isoformat(),
+        "model": model_name,
+        "provider": provider,
     }
 
     for col in SCORE_COLUMNS:
         if col not in benchmark_scores:
             row[col] = None
             continue
-        score, stderr, n_samples = benchmark_scores[col]
-        row[col] = [score, stderr, float(n_samples)]
+        score, stderr = benchmark_scores[col]
+        row[col] = str([score, stderr])
 
+    row["date"] = date.today().isoformat()
     return row
 
 
 def _write_parquet(row: dict[str, object]) -> bytes:
-    """Serialize a single-row dict to parquet bytes using pyarrow."""
-    score_type = pa.list_(pa.float64())
+    """Serialize a single-row dict to parquet bytes using pyarrow.
+
+    All columns are strings to match the HuggingFace dataset schema.
+    """
     schema = pa.schema(
-        [pa.field("model", pa.string())]
-        + [pa.field(col, score_type) for col in SCORE_COLUMNS]
+        [pa.field("model", pa.string()), pa.field("provider", pa.string())]
+        + [pa.field(col, pa.string()) for col in SCORE_COLUMNS]
         + [pa.field("date", pa.string())]
     )
 
     arrays = []
     for field in schema:
         value = row.get(field.name)
-        if field.name in SCORE_COLUMNS:
-            arrays.append(pa.array([value], type=score_type))
-            continue
-        arrays.append(pa.array([value], type=field.type))
+        arrays.append(pa.array([value], type=pa.string()))
 
     table = pa.table(arrays, schema=schema)
 

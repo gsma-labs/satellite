@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -89,8 +90,9 @@ for index, benchmark in enumerate(BENCHMARKS):
         round(0.01 + (0.002 * index), 6),
     )
 
+# Log file paths keyed by benchmark id (not hf_column).
 ALL_LOGS: dict[str, _EvalLog] = {
-    f"/fake/{benchmark.hf_column}.json": _EvalLog(
+    f"/fake/{benchmark.id}.json": _EvalLog(
         benchmark.id,
         _ACCURACY_BY_BENCH_ID[benchmark.id],
         benchmark.total_samples or 100,
@@ -101,13 +103,12 @@ ALL_LOGS: dict[str, _EvalLog] = {
 
 PRIMARY_BENCH_ID = "teleqna" if "teleqna" in BENCHMARKS_BY_ID else BENCHMARKS[0].id
 PRIMARY_BENCH = BENCHMARKS_BY_ID[PRIMARY_BENCH_ID]
-PRIMARY_HF_COLUMN = PRIMARY_BENCH.hf_column
 
 BENCHMARK_SCORE_PARAMS = [
     pytest.param(
-        BENCHMARKS_BY_ID[bench_id].hf_column,
-        _ACCURACY_BY_BENCH_ID[bench_id] * 100,
-        id=BENCHMARKS_BY_ID[bench_id].hf_column,
+        bench_id,
+        _ACCURACY_BY_BENCH_ID[bench_id],
+        id=bench_id,
     )
     for bench_id in _ACCURACY_BY_BENCH_ID
 ]
@@ -133,7 +134,7 @@ def _make_preview(
         benchmarks=[benchmark.id for benchmark in BENCHMARKS],
         scores={bench_id: score for bench_id, score in _ACCURACY_BY_BENCH_ID.items()},
         log_files=log_files
-        or [Path(f"/fake/{benchmark.hf_column}.json") for benchmark in BENCHMARKS],
+        or [Path(f"/fake/{benchmark.id}.json") for benchmark in BENCHMARKS],
     )
 
 
@@ -153,13 +154,13 @@ def _read_parquet(parquet_bytes: bytes) -> pa.Table:
 
 @pytest.mark.usefixtures("_mock_logs")
 class TestParquetSchema:
-    """Verify the output parquet matches the leaderboard schema."""
+    """Verify the output parquet matches the HF leaderboard schema."""
 
     def test_has_required_columns(self) -> None:
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
         table = _read_parquet(parquet_bytes)
-        expected = {"model", *SCORE_COLUMNS, "date"}
+        expected = {"model", "provider", *SCORE_COLUMNS, "date"}
         assert set(table.column_names) == expected
 
     def test_schema_column_order(self) -> None:
@@ -167,7 +168,7 @@ class TestParquetSchema:
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
         table = _read_parquet(parquet_bytes)
-        expected_order = ["model", *SCORE_COLUMNS, "date"]
+        expected_order = ["model", "provider", *SCORE_COLUMNS, "date"]
         assert table.column_names == expected_order
 
     def test_single_row(self) -> None:
@@ -180,12 +181,21 @@ class TestParquetSchema:
         remote_path, _ = build_model_card_parquet(_make_preview())
         assert remote_path == "model_cards/openai_gpt-4o.parquet"
 
-    def test_model_display_format(self) -> None:
+    def test_model_is_short_name(self) -> None:
+        """Model column should be short name only, not 'name (Provider)'."""
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
         table = _read_parquet(parquet_bytes)
         model_name = table.column("model").to_pylist()[0]
-        assert model_name == "gpt-4o (Openai)"
+        assert model_name == "gpt-4o"
+
+    def test_provider_column(self) -> None:
+        """Provider column should be capitalized provider name."""
+        _, parquet_bytes = build_model_card_parquet(_make_preview())
+
+        table = _read_parquet(parquet_bytes)
+        provider = table.column("provider").to_pylist()[0]
+        assert provider == "Openai"
 
     def test_date_is_today_iso(self) -> None:
         _, parquet_bytes = build_model_card_parquet(_make_preview())
@@ -194,46 +204,56 @@ class TestParquetSchema:
         parquet_date = table.column("date").to_pylist()[0]
         assert parquet_date == date.today().isoformat()
 
+    def test_score_columns_use_benchmark_id(self) -> None:
+        """SCORE_COLUMNS should use benchmark IDs, not hf_column names."""
+        for col in SCORE_COLUMNS:
+            assert col in BENCHMARKS_BY_ID, f"{col} not a benchmark id"
 
-@pytest.mark.usefixtures("_mock_logs")
-class TestScoreConversion:
-    """Verify 0-1 accuracy is converted to 0-100 percentage."""
-
-    SCORE_INDEX = 0
-    STDERR_INDEX = 1
-    SAMPLES_INDEX = 2
-
-    @pytest.mark.parametrize(
-        ("column", "index", "expected"),
-        [
-            pytest.param(
-                PRIMARY_HF_COLUMN,
-                SCORE_INDEX,
-                _ACCURACY_BY_BENCH_ID[PRIMARY_BENCH_ID] * 100,
-                id="accuracy_pct",
-            ),
-            pytest.param(
-                PRIMARY_HF_COLUMN,
-                STDERR_INDEX,
-                _STDERR_BY_BENCH_ID[PRIMARY_BENCH_ID] * 100,
-                id="stderr_pct",
-            ),
-            pytest.param(
-                PRIMARY_HF_COLUMN,
-                SAMPLES_INDEX,
-                float(PRIMARY_BENCH.total_samples or 100),
-                id="n_samples",
-            ),
-        ],
-    )
-    def test_teleqna_score_triplet(
-        self, column: str, index: int, expected: float
-    ) -> None:
+    def test_all_columns_are_strings(self) -> None:
+        """All parquet columns should be string type to match HF dataset."""
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
         table = _read_parquet(parquet_bytes)
-        arr = table.column(column).to_pylist()[0]
-        assert arr[index] == pytest.approx(expected, abs=0.01)
+        for field in table.schema:
+            assert field.type == pa.string(), (
+                f"Column {field.name} should be string, got {field.type}"
+            )
+
+
+@pytest.mark.usefixtures("_mock_logs")
+class TestScoreConversion:
+    """Verify scores are string-encoded [score, stderr] at 0-1 scale."""
+
+    def test_score_is_string_encoded(self) -> None:
+        """Score columns should be string-encoded '[score, stderr]'."""
+        _, parquet_bytes = build_model_card_parquet(_make_preview())
+
+        table = _read_parquet(parquet_bytes)
+        raw = table.column(PRIMARY_BENCH_ID).to_pylist()[0]
+        assert isinstance(raw, str)
+        parsed = ast.literal_eval(raw)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 2
+
+    def test_primary_score_value(self) -> None:
+        _, parquet_bytes = build_model_card_parquet(_make_preview())
+
+        table = _read_parquet(parquet_bytes)
+        raw = table.column(PRIMARY_BENCH_ID).to_pylist()[0]
+        parsed = ast.literal_eval(raw)
+        assert parsed[0] == pytest.approx(
+            _ACCURACY_BY_BENCH_ID[PRIMARY_BENCH_ID], abs=1e-4
+        )
+
+    def test_primary_stderr_value(self) -> None:
+        _, parquet_bytes = build_model_card_parquet(_make_preview())
+
+        table = _read_parquet(parquet_bytes)
+        raw = table.column(PRIMARY_BENCH_ID).to_pylist()[0]
+        parsed = ast.literal_eval(raw)
+        assert parsed[1] == pytest.approx(
+            _STDERR_BY_BENCH_ID[PRIMARY_BENCH_ID], abs=1e-4
+        )
 
     @pytest.mark.parametrize(
         ("column", "expected_score"),
@@ -245,8 +265,9 @@ class TestScoreConversion:
         _, parquet_bytes = build_model_card_parquet(_make_preview())
 
         table = _read_parquet(parquet_bytes)
-        arr = table.column(column).to_pylist()[0]
-        assert arr[self.SCORE_INDEX] == expected_score
+        raw = table.column(column).to_pylist()[0]
+        parsed = ast.literal_eval(raw)
+        assert parsed[0] == pytest.approx(expected_score, abs=1e-4)
 
 
 class TestMissingStderr:
@@ -254,7 +275,7 @@ class TestMissingStderr:
 
     def test_no_stderr_defaults_to_zero(self) -> None:
         logs_no_stderr = {
-            f"/fake/{PRIMARY_HF_COLUMN}.json": _EvalLog(
+            f"/fake/{PRIMARY_BENCH_ID}.json": _EvalLog(
                 PRIMARY_BENCH_ID,
                 _ACCURACY_BY_BENCH_ID[PRIMARY_BENCH_ID],
                 PRIMARY_BENCH.total_samples or 100,
@@ -264,14 +285,15 @@ class TestMissingStderr:
         def mock_read(path: str, header_only: bool = False) -> _EvalLog:
             return logs_no_stderr[path]
 
-        preview = _make_preview(log_files=[Path(f"/fake/{PRIMARY_HF_COLUMN}.json")])
+        preview = _make_preview(log_files=[Path(f"/fake/{PRIMARY_BENCH_ID}.json")])
 
         with patch(MOCK_PATCH_TARGET, side_effect=mock_read):
             _, parquet_bytes = build_model_card_parquet(preview)
 
         table = _read_parquet(parquet_bytes)
-        arr = table.column(PRIMARY_HF_COLUMN).to_pylist()[0]
-        assert arr[1] == 0.0
+        raw = table.column(PRIMARY_BENCH_ID).to_pylist()[0]
+        parsed = ast.literal_eval(raw)
+        assert parsed[1] == 0.0
 
 
 class TestErrorCases:
