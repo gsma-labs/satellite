@@ -94,6 +94,8 @@ _FALLBACK_BENCHMARK_IDS: tuple[str, ...] = (
     "telemath",
     "teletables",
     "three_gpp",
+    "oranbench",
+    "srsranbench",
 )
 
 

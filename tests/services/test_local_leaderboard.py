@@ -1,6 +1,9 @@
-"""Tests for local model collection and leaderboard merge logic."""
+"""Tests for local model collection, remote CSV fetch, and leaderboard merge logic."""
 
+import csv
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +12,7 @@ from satellite.services.evals.job_manager import Job
 from satellite.services.leaderboard.client import (
     LeaderboardEntry,
     collect_local_entries,
+    fetch_leaderboard,
     merge_leaderboard,
     split_model_name,
 )
@@ -63,7 +67,7 @@ class TestSplitModelName:
         assert split_model_name(model_id) == expected
 
 
-# The real registry has 5 benchmarks; we mock it to 3 for isolation
+# The real registry has 7 benchmarks; we mock it to 3 for isolation
 MOCK_BENCHMARKS = {"b1": None, "b2": None, "b3": None}
 
 
@@ -235,3 +239,179 @@ class TestMergeLeaderboard:
 
         assert merged[-1].model == "unscored"
         assert merged[0].model == "local"
+
+
+def _write_csv(path: Path, fieldnames: list[str], rows: list[dict]) -> None:
+    """Helper: write a CSV file at *path*."""
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# Benchmark IDs that the real registry exposes (used to mock BENCHMARKS).
+_ALL_BENCH_IDS = [
+    "teleqna",
+    "telelogs",
+    "telemath",
+    "teletables",
+    "three_gpp",
+    "oranbench",
+    "srsranbench",
+]
+
+
+def _fake_benchmarks(ids: list[str]):
+    """Build a minimal BENCHMARKS tuple with the given IDs."""
+    from satellite.services.evals.registry import BenchmarkConfig
+
+    return tuple(
+        BenchmarkConfig(
+            id=bid,
+            name=bid,
+            short_name=bid[:4],
+            description="test",
+            hf_column=bid,
+            module_path="",
+            function_name="",
+            total_samples=100,
+        )
+        for bid in ids
+    )
+
+
+class TestFetchLeaderboard:
+    """Tests for fetching and parsing the remote CSV leaderboard."""
+
+    def test_fetch_parses_csv_scores(self, tmp_path: Path) -> None:
+        """Scores are parsed from string-encoded lists and converted to percentages."""
+        csv_path = tmp_path / "leaderboard_scores.csv"
+        fieldnames = ["model", "provider", *_ALL_BENCH_IDS]
+        rows = [
+            {
+                "model": "gpt-4o",
+                "provider": "OpenAI",
+                "teleqna": "[0.85, 0.01]",
+                "telelogs": "[0.72, 0.02]",
+                "telemath": "[0.65, 0.03]",
+                "teletables": "[0.90, 0.005]",
+                "three_gpp": "[0.78, 0.015]",
+                "oranbench": "[0.60, 0.02]",
+                "srsranbench": "[0.55, 0.025]",
+            },
+        ]
+        _write_csv(csv_path, fieldnames, rows)
+
+        benchmarks = _fake_benchmarks(_ALL_BENCH_IDS)
+        with (
+            patch(
+                "satellite.services.leaderboard.client.hf_hub_download",
+                return_value=str(csv_path),
+            ),
+            patch("satellite.services.leaderboard.client.BENCHMARKS", benchmarks),
+        ):
+            entries = fetch_leaderboard()
+
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.model == "gpt-4o"
+        assert entry.provider == "OpenAI"
+        assert entry.scores["teleqna"] == pytest.approx(85.0)
+        assert entry.scores["three_gpp"] == pytest.approx(78.0)
+        assert entry.scores["oranbench"] == pytest.approx(60.0)
+        assert entry.scores["srsranbench"] == pytest.approx(55.0)
+        assert len(entry.scores) == 7
+
+    def test_fetch_handles_empty_scores(self, tmp_path: Path) -> None:
+        """Empty CSV cells produce None scores."""
+        csv_path = tmp_path / "leaderboard_scores.csv"
+        fieldnames = ["model", "provider", "teleqna", "telelogs"]
+        rows = [
+            {"model": "empty-model", "provider": "Test", "teleqna": "", "telelogs": ""},
+        ]
+        _write_csv(csv_path, fieldnames, rows)
+
+        benchmarks = _fake_benchmarks(["teleqna", "telelogs"])
+        with (
+            patch(
+                "satellite.services.leaderboard.client.hf_hub_download",
+                return_value=str(csv_path),
+            ),
+            patch("satellite.services.leaderboard.client.BENCHMARKS", benchmarks),
+        ):
+            entries = fetch_leaderboard()
+
+        assert len(entries) == 1
+        assert entries[0].scores["teleqna"] is None
+        assert entries[0].scores["telelogs"] is None
+        assert entries[0].avg_score is None
+
+    def test_fetch_handles_missing_columns(self, tmp_path: Path) -> None:
+        """Graceful when CSV has fewer benchmark columns than the registry."""
+        csv_path = tmp_path / "leaderboard_scores.csv"
+        # CSV only has 2 of 7 benchmark columns
+        fieldnames = ["model", "provider", "teleqna", "telelogs"]
+        rows = [
+            {
+                "model": "partial",
+                "provider": "Test",
+                "teleqna": "[0.80]",
+                "telelogs": "[0.70]",
+            },
+        ]
+        _write_csv(csv_path, fieldnames, rows)
+
+        benchmarks = _fake_benchmarks(_ALL_BENCH_IDS)
+        with (
+            patch(
+                "satellite.services.leaderboard.client.hf_hub_download",
+                return_value=str(csv_path),
+            ),
+            patch("satellite.services.leaderboard.client.BENCHMARKS", benchmarks),
+        ):
+            entries = fetch_leaderboard()
+
+        assert len(entries) == 1
+        # Only the 2 columns present in CSV are parsed
+        assert len(entries[0].scores) == 2
+        assert entries[0].scores["teleqna"] == pytest.approx(80.0)
+        assert entries[0].scores["telelogs"] == pytest.approx(70.0)
+
+    def test_three_gpp_column_read_from_remote(self, tmp_path: Path) -> None:
+        """Regression: three_gpp benchmark is read using b.id, not b.hf_column."""
+        csv_path = tmp_path / "leaderboard_scores.csv"
+        # The CSV uses "three_gpp" as the column name (matching b.id),
+        # NOT "3gpp_tsg" (which is b.hf_column from the evals package).
+        fieldnames = ["model", "provider", "three_gpp"]
+        rows = [
+            {"model": "test-model", "provider": "Test", "three_gpp": "[0.82, 0.01]"},
+        ]
+        _write_csv(csv_path, fieldnames, rows)
+
+        # Simulate a benchmark whose hf_column differs from its id
+        from satellite.services.evals.registry import BenchmarkConfig
+
+        benchmarks = (
+            BenchmarkConfig(
+                id="three_gpp",
+                name="3GPP",
+                short_name="3GPP",
+                description="test",
+                hf_column="3gpp_tsg",  # differs from id!
+                module_path="",
+                function_name="",
+                total_samples=100,
+            ),
+        )
+
+        with (
+            patch(
+                "satellite.services.leaderboard.client.hf_hub_download",
+                return_value=str(csv_path),
+            ),
+            patch("satellite.services.leaderboard.client.BENCHMARKS", benchmarks),
+        ):
+            entries = fetch_leaderboard()
+
+        assert len(entries) == 1
+        assert entries[0].scores["three_gpp"] == pytest.approx(82.0)

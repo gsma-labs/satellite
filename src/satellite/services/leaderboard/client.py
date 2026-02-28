@@ -1,11 +1,12 @@
 """Leaderboard client: fetch, collect, and merge leaderboard data."""
 
+import ast
+import csv
 import logging
 import math
 from dataclasses import dataclass, field
 from statistics import mean
 
-import pyarrow.parquet as pq
 from huggingface_hub import hf_hub_download
 
 from satellite.services.evals import BENCHMARKS_BY_ID, JobManager
@@ -14,7 +15,7 @@ from satellite.services.evals.registry import BENCHMARKS
 _log = logging.getLogger(__name__)
 
 DATASET_ID = "GSMA/leaderboard"
-PARQUET_FILE = "data/train-00000-of-00001.parquet"
+CSV_FILE = "leaderboard_scores.csv"
 
 
 def score_rank(entry: "LeaderboardEntry") -> tuple[bool, float]:
@@ -37,14 +38,17 @@ class LeaderboardEntry:
 def fetch_leaderboard() -> list[LeaderboardEntry]:
     """Fetch leaderboard entries from the GSMA/leaderboard dataset."""
     path = hf_hub_download(
-        repo_id=DATASET_ID, filename=PARQUET_FILE, repo_type="dataset"
+        repo_id=DATASET_ID, filename=CSV_FILE, repo_type="dataset"
     )
-    dataset = pq.read_table(path).to_pydict()
 
-    score_cols = {b.id: b.hf_column for b in BENCHMARKS if b.hf_column in dataset}
-    row_count = len(dataset["model"])
+    with open(path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        fieldnames = set(reader.fieldnames or [])
+        # Remote CSV columns match benchmark IDs (e.g. "three_gpp"),
+        # not hf_column (e.g. "3gpp_tsg"), so look up by b.id.
+        score_cols = [b.id for b in BENCHMARKS if b.id in fieldnames]
+        entries = [_parse_row_csv(row, score_cols) for row in reader]
 
-    entries = [_parse_row(dataset, row, score_cols) for row in range(row_count)]
     entries.sort(key=score_rank)
     return entries
 
@@ -122,24 +126,56 @@ def _compute_avg(scores: dict[str, float | None]) -> float | None:
     return mean(valid)
 
 
-def _parse_row(dataset: dict, row: int, score_cols: dict[str, str]) -> LeaderboardEntry:
-    raw_model = dataset["model"][row] or "Unknown"
-    name, _, provider = raw_model.partition(" (")
+def _parse_row_csv(
+    row: dict[str, str], score_cols: list[str]
+) -> LeaderboardEntry:
+    """Parse a single CSV row into a LeaderboardEntry.
 
-    scores = {
-        bench_id: _parse_score(dataset[col_name][row])
-        for bench_id, col_name in score_cols.items()
-    }
+    The remote CSV has separate ``model`` and ``provider`` columns, and stores
+    scores as string-encoded lists like ``"[0.852, 0.0112]"`` in 0-1 range.
+    """
+    model = row.get("model", "").strip() or "Unknown"
+    provider = row.get("provider", "").strip() or "Unknown"
+
+    scores: dict[str, float | None] = {}
+    for col in score_cols:
+        scores[col] = _parse_csv_score(row.get(col, ""))
 
     return LeaderboardEntry(
-        model=name,
-        provider=provider.rstrip(")") or "Unknown",
+        model=model,
+        provider=provider,
         avg_score=_compute_avg(scores),
         scores=scores,
     )
 
 
+def _parse_csv_score(raw: str) -> float | None:
+    """Parse a CSV score cell.
+
+    Values are string-encoded lists like ``"[0.852, 0.0112]"`` where the first
+    element is the accuracy in 0-1 range. Returns percentage (0-100) or None.
+    """
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        value = ast.literal_eval(raw)
+    except (ValueError, SyntaxError):
+        return None
+    if isinstance(value, list):
+        if not value:
+            return None
+        val = float(value[0])
+    else:
+        val = float(value)
+    if math.isnan(val) or math.isinf(val):
+        _log.warning("Discarding NaN/Inf score: %s", raw)
+        return None
+    return val * 100
+
+
 def _parse_score(raw_value: float | list | None) -> float | None:
+    """Parse a score from a pydict/list format (used by local entries)."""
     if raw_value is None:
         return None
     if isinstance(raw_value, list):
