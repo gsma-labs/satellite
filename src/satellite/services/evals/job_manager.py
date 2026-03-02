@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
@@ -23,7 +24,34 @@ _log = logging.getLogger(__name__)
 
 JobStatus = Literal["running", "success", "error", "cancelled"]
 
-DEFAULT_JOBS_DIR = PACKAGE_ROOT / "jobs"
+
+def _resolve_jobs_dir() -> Path:
+    """Resolve the jobs directory, handling both editable and installed modes.
+
+    In editable installs (development), PACKAGE_ROOT points to the source tree
+    and PACKAGE_ROOT / "jobs" works correctly.
+
+    In non-editable installs (Docker/production), PACKAGE_ROOT points to
+    site-packages/ where no jobs directory exists. Fall back to the source tree
+    relative to the working directory.
+    """
+    if env_dir := os.environ.get("SATELLITE_JOBS_DIR"):
+        return Path(env_dir)
+
+    pkg_jobs = PACKAGE_ROOT / "jobs"
+    if pkg_jobs.exists():
+        return pkg_jobs
+
+    # Fallback: source tree relative to cwd (e.g. /app/src/satellite/jobs in Docker)
+    cwd_jobs = Path("src/satellite/jobs")
+    if cwd_jobs.exists():
+        return cwd_jobs.resolve()
+
+    # Last resort: create in PACKAGE_ROOT (original behavior)
+    return pkg_jobs
+
+
+DEFAULT_JOBS_DIR = _resolve_jobs_dir()
 CANCELLED_MARKER = "cancelled"
 SATELLITE_PROGRESS_FILE = ".satellite-progress.json"
 

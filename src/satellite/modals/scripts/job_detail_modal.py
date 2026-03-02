@@ -1,6 +1,7 @@
 """JobDetailModal - Modal dialog displaying job details with live refresh."""
 
 import logging
+import os
 import webbrowser
 from typing import ClassVar
 
@@ -16,7 +17,9 @@ from satellite.services.evals import Job, JobDetails, JobManager
 
 _log = logging.getLogger(__name__)
 
-INSPECT_TRACES_BASE_URL = "http://127.0.0.1:7575/#/logs"
+INSPECT_TRACES_BASE_URL = os.environ.get(
+    "SATELLITE_TRACES_URL", "http://127.0.0.1:7575/#/logs"
+)
 POLL_INTERVAL_SECONDS = 2.0
 TERMINAL_STATUSES = frozenset({"success", "error", "cancelled"})
 PENDING_COLOR = "#6272A4"  # Dracula comment color for pending/loading states
@@ -66,6 +69,7 @@ class JobDetailModal(ModalScreen[None]):
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "dismiss", "Close", show=False),
+        Binding("t", "open_traces", "Check Traces"),
     ]
 
     def __init__(self, job: Job, job_manager: JobManager) -> None:
@@ -120,7 +124,7 @@ class JobDetailModal(ModalScreen[None]):
     def _compose_traces_link(self) -> ComposeResult:
         """Compose a clickable link to open the Inspect AI trace viewer."""
         yield Static(
-            "[#BD93F9]\u2192 Check Traces[/]",
+            "[#BD93F9][bold]t[/bold] \u2192 Check Traces[/]",
             classes="trace-link",
         )
 
@@ -269,7 +273,16 @@ class JobDetailModal(ModalScreen[None]):
         """Check if widget is the trace link."""
         return "trace-link" in widget.classes
 
+    def action_open_traces(self) -> None:
+        """Keyboard binding action for Check Traces."""
+        self._open_trace_viewer()
+
     def _open_trace_viewer(self) -> None:
         """Open the Inspect AI trace viewer for this job."""
         url = f"{INSPECT_TRACES_BASE_URL}/{self._job.id}/"
-        webbrowser.open(url)
+        try:
+            opened = webbrowser.open(url)
+        except Exception:
+            opened = False
+        if not opened:
+            self.app.notify(f"Open: {url}", timeout=15)

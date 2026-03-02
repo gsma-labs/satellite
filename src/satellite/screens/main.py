@@ -86,6 +86,7 @@ class MainScreen(Screen):
         Binding("f", "quick_launch", "", show=False),
         # Resume
         Binding("ctrl+r", "resume", "Resume", show=False),
+        Binding("l", "open_logs", "Logs", show=False),
         Binding("?", "help", "Help", show=False),
     ]
 
@@ -167,9 +168,16 @@ class MainScreen(Screen):
 
     def action_open_logs(self) -> None:
         """Open the logs URL in browser."""
+        import os
         import webbrowser
 
-        webbrowser.open("http://localhost:7575")
+        url = os.environ.get("SATELLITE_TRACES_URL", "http://localhost:7575")
+        try:
+            opened = webbrowser.open(url)
+        except Exception:
+            opened = False
+        if not opened:
+            self.app.notify(f"Open: {url}", timeout=15)
 
     def action_open_site(self) -> None:
         """Open the GSMA website."""

@@ -21,6 +21,7 @@ from satellite.screens.main import MainScreen
 from satellite.services.evals import EvalRunner, JobManager
 
 INSPECT_VIEW_PORT = 7575
+INSPECT_VIEW_HOST = os.environ.get("SATELLITE_VIEW_HOST", "127.0.0.1")
 INSPECT_VIEW_CMD = ("uv", "run", "inspect", "view")
 UV_PROJECT_ROOT = PACKAGE_ROOT.parent.parent
 VIEW_SHUTDOWN_TIMEOUT = 3
@@ -95,6 +96,8 @@ class SatelliteApp(App):
             str(log_dir),
             "--port",
             str(INSPECT_VIEW_PORT),
+            "--host",
+            INSPECT_VIEW_HOST,
         ]
         try:
             self._view_process = subprocess.Popen(
