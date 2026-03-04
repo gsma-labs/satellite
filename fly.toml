@@ -1,0 +1,29 @@
+app = "satellite-demo"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "deploy/Dockerfile"
+
+[env]
+  SATELLITE_VIEW_HOST = "0.0.0.0"
+  SATELLITE_TRACES_URL = "https://satellite-demo.fly.dev:7575/#/logs"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[services]]
+  internal_port = 7575
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 7575
+    handlers = ["tls", "http"]
+
+[[vm]]
+  memory = "65536mb"
+  cpu_kind = "performance"
+  cpus = 8

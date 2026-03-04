@@ -1,0 +1,28 @@
+{
+  "name": "satellite-cli",
+  "version": "0.1.0",
+  "description": "CLI for running telecom LLM benchmarks via Inspect AI",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "satellite": "src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile satellite",
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@dsnp/parquetjs": "^1.8.0",
+    "@inkjs/ui": "^2.0.0",
+    "@types/react": "^19.2.14",
+    "ink": "^6.8.0",
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.7.0"
+  }
+}

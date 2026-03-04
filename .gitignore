@@ -39,6 +39,9 @@ ENV/
 *.swo
 *~
 
+# Node/Bun
+node_modules/
+
 # Tools
 .ruff_cache/
 .mypy_cache/
